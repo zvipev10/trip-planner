@@ -14,7 +14,8 @@ The goal is a free app without a paid routing API dependency.
 | Routino slim routing | Implemented and tested against a real regional road database |
 | GraphHopper adapter | Implemented with mocked tests; live configuration unvalidated |
 | Kotlin/Compose Android app | Work in progress; local trips, location editing, share intake and endpoints authored |
-| Android build/device testing | Not yet verified; local build blocked by SDK/environment setup |
+| Android build and unit tests | Debug APK, unit tests and lint passed in GitHub Actions |
+| Android device testing | Not yet run on an emulator or physical phone |
 | Automatic Google Maps/Waze link resolution | Not implemented; Android preserves links and extracts explicit coordinate queries |
 | Production deployment | Not deployed; user's Ubuntu VM remains unchanged |
 
@@ -99,8 +100,12 @@ cd android
 ./gradlew :app:assembleDebug
 ```
 
-A configured Android SDK is required. The Android implementation is unverified:
-no successful APK build or emulator/device run has been recorded. Addresses and
+A configured Android SDK and JDK 17 are required. GitHub Actions has successfully
+built the debug APK and passed unit tests and lint. See the
+[verified build](https://github.com/zvipev10/trip-planner/actions/runs/39047260207)
+and its `trip-planner-debug` artifact (retained for seven days). Download the ZIP,
+extract `app-debug.apk`, and install it on an Android 8+ device for testing.
+No emulator or physical-device test has been recorded yet. Addresses and
 short links can be collected unresolved; route calculation and map display are
 not wired into the Android UI yet. Start and end can reference the same location.
 
@@ -110,3 +115,10 @@ Credentials, SSH keys, `.env`, local environments, Android SDKs, build outputs,
 regional road files and binary setup bundles must stay outside Git. See
 [third-party notices](THIRD_PARTY_NOTICES.md) for the derived Routino profile,
 upstream licenses and OpenStreetMap data attribution.
+
+
+Android validation details: [build report](reports/android-validation.md).
+The CI workflow builds and publishes a debug APK on pushes and pull requests.
+This is a development build, not a signed production release. Local trip/location
+editing and endpoint selection are implemented; routing and map display remain
+backend-only and are not yet connected to the Android screens.
