@@ -65,7 +65,25 @@ fallbacks, saving immediately after paste, mocked short-link resolution and
 clearing old coordinates when changing a link. Redirect resolution is covered
 with mocked HTTP tests, including blocked private-host redirects and canonical
 metadata. This is not physical iPhone testing or a live short-link provider test.
-The exact failing link reported by the user has not yet been provided.
+The exact failing link was subsequently supplied in a screenshot; see the follow-up below.
 
 Deploy by pulling the repository, reinstalling the backend package, and restarting
 `trip-planner`. Updated module URL versions ensure Safari loads the changed code.
+
+
+## Google feature-ID short-link follow-up
+
+The screenshot's link (`https://maps.app.goo.gl/SZuQY5qwP4PJ8woF8?g_st=ic`)
+redirects to a named address with `ftid`, not destination coordinates. Normal Maps
+HTML did not expose the destination. The resolver now requests Google's embedded
+map for the same feature ID, decodes its `initEmbed` JSON without evaluating
+JavaScript, and selects only destination coordinates whose feature ID matches.
+The expected ID is preserved across Google's redirect to `/maps/embed`.
+
+Live verification of the exact short link returned `קרית אריה`, latitude
+`32.0935124`, longitude `34.8482224`. Regression tests reproduce the redirect
+chain and embed response, rejecting unmatched IDs, invalid coordinates, malformed
+JSON and viewport-only responses. Backend suite: 62 passed; web suite: 16 passed.
+This is a backend-only fix and needs the VM service updated/restarted. Google's
+unofficial embed format may change; unsupported responses fail explicitly rather
+than guessing coordinates. No Google API key or new paid service was introduced.

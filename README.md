@@ -9,7 +9,7 @@ The goal is a free app without a paid routing API dependency.
 
 | Component | Status |
 | --- | --- |
-| Python/FastAPI backend | Implemented; 56 tests passed in local validation |
+| Python/FastAPI backend | Implemented; 62 tests passed in local validation |
 | OR-Tools stop ordering | Implemented; up to 20 intermediate stops |
 | Routino slim routing | Implemented and tested against a real regional road database |
 | GraphHopper adapter | Implemented with mocked tests; live configuration unvalidated |

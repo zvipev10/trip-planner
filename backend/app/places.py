@@ -1,10 +1,11 @@
 """Resolve only known map hosts; never follow redirects to arbitrary servers."""
 import asyncio
 import html
+import json
 import math
 import re
 from html.parser import HTMLParser
-from urllib.parse import parse_qs, unquote, urljoin, urlsplit
+from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlsplit
 
 import httpx
 from pydantic import Field
@@ -92,6 +93,49 @@ def parse_place(text):
     return {"name": name[:200] if name else None, **(coordinate or {})}
 
 
+def google_embed_url(url):
+    """Keep the exact Google feature ID, dropping tracking and camera parameters."""
+    parsed = urlsplit(url)
+    query = parse_qs(parsed.query)
+    ftid = query.get("ftid", [""])[0]
+    if parsed.hostname not in {"google.com", "www.google.com", "maps.google.com", "google.co.il", "www.google.co.il", "maps.google.co.il"} or not re.fullmatch(r"0x[0-9a-fA-F]+:0x[0-9a-fA-F]+", ftid):
+        return url, None
+    return "https://www.google.com/maps?" + urlencode({"q": query.get("q", [ftid])[0], "ftid": ftid, "output": "embed", "hl": "en"}), ftid
+
+
+def embedded_google_place(page, expected_ftid):
+    if not expected_ftid:
+        return None
+    start = re.search(r"\binitEmbed\s*\(\s*", page)
+    if not start:
+        return None
+    try:
+        payload, _ = json.JSONDecoder().raw_decode(page[start.end():])
+    except (ValueError, RecursionError):
+        return None
+
+    def find(node, label=None):
+        if not isinstance(node, list):
+            return None
+        if len(node) >= 3 and node[0] == expected_ftid and isinstance(node[1], str) and isinstance(node[2], list) and len(node[2]) == 2:
+            lat, lon = node[2]
+            if type(lat) in (int, float) and type(lon) in (int, float):
+                point = parse_place(f"{lat},{lon}")
+                if "latitude" in point:
+                    return {**point, "name": (label or node[1])[:200]}
+        for child in node:
+            child_label = node[1] if isinstance(node[0], list) and len(node) > 1 and isinstance(node[1], str) else None
+            result = find(child, child_label)
+            if result:
+                return result
+        return None
+
+    try:
+        return find(payload)
+    except (RecursionError, IndexError):
+        return None
+
+
 async def resolve_place(text, client=None):
     result = parse_place(text)
     if "latitude" in result:
@@ -113,7 +157,10 @@ async def resolve_place(text, client=None):
             except TimeoutError as exc:
                 raise PlanningError("link_resolution_failed", "Reading this map link timed out. Please retry.", 504) from exc
     try:
+        expected_ftid = None
         for _ in range(6):
+            url, feature_id = google_embed_url(url)
+            expected_ftid = feature_id or expected_ftid
             if not allowed(url):
                 raise PlanningError("unsupported_redirect", "This map link redirects to an unsupported website.")
             async with client.stream("GET", url, headers={"User-Agent": "Mozilla/5.0", "Accept-Language": "en"}) as response:
@@ -133,6 +180,9 @@ async def resolve_place(text, client=None):
                     if len(body) > 1_000_000:
                         break
                 page = html.unescape(body[:1_000_000].decode("utf-8", errors="replace"))
+                embedded = embedded_google_place(page, expected_ftid)
+                if embedded:
+                    return embedded
                 # Resolve canonical destination metadata, not unrelated map markers in page scripts.
                 metadata = DestinationMetadata()
                 metadata.feed(page)

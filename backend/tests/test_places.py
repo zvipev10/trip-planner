@@ -87,3 +87,55 @@ def test_canonical_destination_metadata(reverse):
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, text=page))) as client:
             return await resolve_place('https://maps.app.goo.gl/example', client)
     assert asyncio.run(run()) == {'name': 'Cafe Five', 'latitude': 32.08, 'longitude': 34.78}
+
+
+# Exact feature ID/address format returned by the user's Google short link.
+USER_FTID = '0x151d49f6e6ba521d:0xe00153be1828da13'
+USER_ADDRESS = "קרית אריה, Ef'al St 7, Petah Tikva"
+
+
+def embed_fixture(ftid=USER_FTID, latitude=32.0935124):
+    import json
+    # Conflicting camera coordinates must not be selected. Destination is keyed by ID.
+    payload = [None, [[[3380.1, 34.0, 31.0], [0, 0, 0]], None, None,
+                      [[ftid, USER_ADDRESS, [latitude, 34.8482224], '16141274615386790419'], 'קרית אריה']]]
+    return '<script>initEmbed(' + json.dumps(payload, ensure_ascii=False) + ');</script>'
+
+
+def test_exact_user_short_link_resolves_feature_id():
+    calls = []
+    def handler(request):
+        calls.append(request.url)
+        if request.url.host == 'maps.app.goo.gl':
+            return httpx.Response(302, headers={'location': str(httpx.URL('https://maps.google.com', params={'q': USER_ADDRESS, 'ftid': USER_FTID, 'g_st': 'ic'}))})
+        assert request.url.host == 'www.google.com'
+        if request.url.path == '/maps':
+            assert request.url.params['output'] == 'embed'
+            assert request.url.params['ftid'] == USER_FTID
+            assert 'g_st' not in request.url.params
+            return httpx.Response(301, headers={'location': 'https://www.google.com/maps/embed?pb=opaque-feature-data'})
+        assert request.url.path == '/maps/embed'
+        return httpx.Response(200, text=embed_fixture())
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await resolve_place('https://maps.app.goo.gl/SZuQY5qwP4PJ8woF8?g_st=ic', client)
+    assert asyncio.run(run()) == {'name': 'קרית אריה', 'latitude': 32.0935124, 'longitude': 34.8482224}
+    assert len(calls) == 3
+
+
+@pytest.mark.parametrize('page', [
+    embed_fixture(ftid='0x111:0x222'),
+    embed_fixture(latitude=100),
+    '<script>initEmbed([[[3380.1,34.8482224,32.0935124]]]);</script>',
+    '<script>initEmbed(notValidJSON);</script>',
+])
+def test_embedded_destination_requires_matching_id_and_valid_position(page):
+    from app.places import embedded_google_place
+    assert embedded_google_place(page, USER_FTID) is None
+
+
+def test_real_embed_response_shape():
+    from app.places import embedded_google_place
+    # Reproduces the destination container from the live Google embed response.
+    page = 'initEmbed([null,null,[[[3380.10250890583,34.8482224,32.0935124],[0,0,0],null,13.1],null,null,[["' + USER_FTID + '","קרית אריה, Ef\'al St 7, Petah Tikva, Israel",[32.0935124,34.8482224],"16141274615386790419"],"קרית אריה",["Ef\'al St 7","Petah Tikva","Israel"]]]]);'
+    assert embedded_google_place(page, USER_FTID)['name'] == 'קרית אריה'
