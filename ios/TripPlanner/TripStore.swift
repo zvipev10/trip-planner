@@ -15,7 +15,7 @@ final class TripStore: ObservableObject {
         self.client = client
         if FileManager.default.fileExists(atPath: self.file.path) {
             do { trips = try JSONDecoder().decode([Trip].self, from: Data(contentsOf: self.file)) }
-            catch { readable = false; error = "Saved trips could not be loaded. Your data has been kept unchanged." }
+            catch { readable = false; self.error = "Saved trips could not be loaded. Your data has been kept unchanged." }
         }
     }
     func trip(_ id: UUID) -> Trip? { trips.first { $0.id == id } }
@@ -71,6 +71,6 @@ final class TripStore: ObservableObject {
         catch let failure as PlannerError { error = failure.message }
         catch let failure as URLError {
             error = failure.code == .timedOut ? "The request timed out. Please retry." : "Could not reach the routing service. Check your connection and retry."
-        } catch { error = "The route response could not be read. Please retry." }
+        } catch { self.error = "The route response could not be read. Please retry." }
     }
 }

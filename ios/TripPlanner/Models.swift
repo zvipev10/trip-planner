@@ -43,7 +43,7 @@ struct RoutePoint: Codable {
     let latitude: Double
     let longitude: Double
 }
-struct RoadPolicy: Codable {
+struct RoadPolicy: Encodable {
     let avoidTolls = false
     let avoidFerries = true
     let avoidUnpaved = true
