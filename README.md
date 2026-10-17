@@ -9,14 +9,14 @@ The goal is a free app without a paid routing API dependency.
 
 | Component | Status |
 | --- | --- |
-| Python/FastAPI backend | Implemented; 35 tests passed in local validation |
+| Python/FastAPI backend | Implemented; 56 tests passed in local validation |
 | OR-Tools stop ordering | Implemented; up to 20 intermediate stops |
 | Routino slim routing | Implemented and tested against a real regional road database |
 | GraphHopper adapter | Implemented with mocked tests; live configuration unvalidated |
 | Kotlin/Compose Android app | Local trips, share intake, endpoints, optimization and manual stop ordering |
 | Android build and unit tests | Debug APK, unit tests and lint passed in GitHub Actions |
 | Android device testing | Not yet run on an emulator or physical phone |
-| Automatic Google Maps/Waze link resolution | Not implemented; Android preserves links and extracts explicit coordinate queries |
+| Automatic Google Maps/Waze link resolution | Web: automatic destination extraction and allowlisted short-link resolution; Android: explicit coordinate queries |
 | Backend deployment | User-installed on Ubuntu; external health and routing requests verified |
 
 Trips are stored locally on Android using Room. A small backend supplies routing
@@ -162,6 +162,9 @@ HTTP API. On the existing VM proxy, its URL after deployment is
 `http://151.145.93.180/trip-planner/web/`. It supports titled trips, local storage,
 pasted locations, endpoints, optimized order/distance, manual reordering with
 recalculation, backups and road-geometry overview. See [deployment instructions](web/README.md).
-No signing, paid browser SDK, or frontend Node server is needed. Addresses and
-short links still require confirmed coordinates. The code is ready for deployment;
+No signing, paid browser SDK, or frontend Node server is needed. Names are optional;
+map-link paste extracts destination coordinates and a name automatically when
+available, otherwise assigns a numbered name. Short links are resolved through
+`POST /v1/places/resolve` with bounded requests and allowlisted redirect hosts.
+Plain addresses and links without exposed destination data remain unresolved. The code is ready for deployment;
 the VM must pull the update and restart its service.

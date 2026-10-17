@@ -56,9 +56,8 @@
           </button>
         </div>
         <input type="hidden" name="id" /><label
-          >Place name<input
+          >Place name (optional)<input
             name="name"
-            required
             maxlength="200"
             autocomplete="off"
             placeholder="A café, a lookout, a friend’s place…" /></label
@@ -70,11 +69,10 @@
             placeholder="Paste from Google Maps or Waze"
           ></textarea></label
         ><button type="button" class="text-button" id="extract">
-          Extract coordinates from link
+          Retry link extraction
         </button>
         <p class="help">
-          Short links and addresses can be saved now. Confirm their coordinates
-          before planning.
+          Coordinates and place names are extracted automatically from supported map links. You can edit them below.
         </p>
         <div class="coordinate-fields">
           <label
@@ -96,6 +94,6 @@
         </div>
       </form>
     </dialog>
-    <script type="module" src="./app.mjs"></script>
+    <script type="module" src="./app.mjs?v=0.2.1"></script>
   </body>
 </html>

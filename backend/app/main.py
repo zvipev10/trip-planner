@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from .config import configured_provider
 from .models import Geometry, RouteRequest, RouteResponse
+from .places import PlaceLinkRequest, resolve_place
 from .provider import PlanningError, RoutingProvider, UnconfiguredProvider
 from .solver import optimize, validate_matrix
 
@@ -73,3 +74,8 @@ def optimize_route(request: RouteRequest, provider: RoutingProvider = Depends(ge
 @app.post("/v1/routes/calculate", response_model=RouteResponse)
 def calculate_route(request: RouteRequest, provider: RoutingProvider = Depends(get_provider)):
     return calculate(request, provider, False)
+
+
+@app.post("/v1/places/resolve")
+async def resolve_shared_place(request: PlaceLinkRequest):
+    return await resolve_place(request.text)

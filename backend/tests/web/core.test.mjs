@@ -4,6 +4,7 @@ import {
   newTrip,
   uid,
   coordinates,
+  placeName,
   requestFor,
   validateReply,
   currentResult,
@@ -157,4 +158,18 @@ test("backups reject malformed storage and clear unverified cached routes", () =
   t.plan = { distance: 999 };
   assert.equal(validateSaved([t])[0].plan, null);
   assert.throws(() => validateSaved([sample(), { id: 1 }]));
+});
+
+test("Google destination data extracts actual place, ignoring camera position", () => {
+  assert.deepEqual(coordinates("https://www.google.com/maps/place/Cafe+Five/@31,35,15z/data=!3d32.08!4d34.78"), { latitude: 32.08, longitude: 34.78 });
+});
+test("Waze geohash links decode the shared destination", () => {
+  const result = coordinates("https://waze.com/ul/hsv8wrqkp9");
+  assert.ok(result && result.latitude > 29 && result.latitude < 34 && result.longitude > 34 && result.longitude < 36);
+});
+
+test("names are extracted when available, with numbered fallbacks", () => {
+  assert.equal(placeName("https://google.com/maps/place/Cafe+Five/data=!3d32!4d34"), "Cafe Five");
+  assert.equal(placeName("https://waze.com/ul?ll=32,34", 5), "Place 5");
+  assert.equal(placeName("https://google.com/maps?q=Coffee+Shop"), "Coffee Shop");
 });

@@ -3,12 +3,13 @@ import {
   newTrip,
   resolved,
   coordinates,
+  placeName,
   requestFor,
   validateReply,
   currentResult,
   move,
   validateSaved,
-} from "./core.mjs";
+} from "./core.mjs?v=0.2.1";
 const ARROW =
   '<svg class="icon" aria-hidden="true" viewBox="0 0 16 16"><path d="M3 13L13 3M4 3h9v9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
 const KEY = "trip-planner.web.v1",
@@ -90,7 +91,7 @@ function home() {
   return `<section class="intro"><div><span class="eyebrow">MAKE ROOM FOR THE JOURNEY</span><h1>A better order<br>to your day.</h1><p>Gather your places. Find a shorter drive.<br>Keep the freedom to change your mind.</p></div><aside><strong>One trip.<br>Every stop.</strong>Your places stay together, from the first idea to the final route.</aside></section><div class="grid"><section class="panel create-panel"><span class="eyebrow">START SOMETHING</span><h2>Where are you headed?</h2><p>Give your trip a title, then start collecting places.</p><form id="create-form"><label>Trip title<input name="title" required maxlength="120" placeholder="A day around Jerusalem" autocomplete="off"></label><button>Create a trip ↗</button></form></section><section><div class="section-head"><h2>Your trips</h2><span class="count">${trips.length} saved</span></div>${trips.length ? trips.map((t) => `<button class="trip-card" data-trip="${esc(t.id)}"><h3 dir="auto">${esc(t.title)}</h3><small>${t.places.length} locations · ${t.places.filter((p) => !resolved(p)).length} need coordinates</small><span class="arrow" aria-hidden="true">↗</span></button>`).join("") : `<div class="empty"><span class="empty-icon" aria-hidden="true">⌁</span><strong>Your next trip starts here.</strong><br>Create a trip and add the places you want to visit.<br><button class="text-button" data-action="sample">Try a sample Tel Aviv trip ↗</button></div>`}${storageTools()}<p class="footnote">Trips stay in this browser on this device. Export a backup to move them elsewhere. On iPhone, paste shared links into a location’s address field.</p></section></div>`;
 }
 function placeList(t) {
-  return `<div class="editor-layout"><section class="panel"><div class="section-head"><h2>Your places</h2><button data-action="add">+ Add location</button></div>${t.places.length ? t.places.map((p, i) => `<article class="location"><span class="number">${i + 1}</span><div class="place-copy"><h3 dir="auto">${esc(p.name)}</h3><p dir="auto">${esc(p.address || `${p.latitude}, ${p.longitude}`)}</p><span class="badge ${resolved(p) ? "" : "pending"}">${resolved(p) ? "Coordinates confirmed" : "Needs coordinates"}</span>${p.id === t.startId ? '<span class="badge">Start</span>' : ""}${p.id === t.endId ? '<span class="badge">End</span>' : ""}</div><div class="actions"><button class="icon-button" data-edit="${esc(p.id)}" aria-label="Edit ${esc(p.name)}">Edit</button><button class="icon-button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button></div></article>`).join("") : `<div class="empty">A place for every stop.<br>Add your first location to get started.</div>`}</section><aside><div class="tip"><h3>Collect now. Plan later.</h3><p>Paste a Google Maps or Waze link, an address, or coordinates. Places save automatically when you tap Save.</p><p>Confirm each place’s latitude and longitude before calculating a route.</p></div><button class="wide" data-view="plan" ${t.places.length ? "" : "disabled"}>Choose start and end →</button><p class="footnote">Up to 20 intermediate stops, with separate start and end points.</p></aside></div>`;
+  return `<div class="editor-layout"><section class="panel"><div class="section-head"><h2>Your places</h2><button data-action="add">+ Add location</button></div>${t.places.length ? t.places.map((p, i) => `<article class="location"><span class="number">${i + 1}</span><div class="place-copy"><h3 dir="auto">${esc(p.name)}</h3><p dir="auto">${esc(p.address || `${p.latitude}, ${p.longitude}`)}</p><span class="badge ${resolved(p) ? "" : "pending"}">${resolved(p) ? "Coordinates confirmed" : "Needs coordinates"}</span>${p.id === t.startId ? '<span class="badge">Start</span>' : ""}${p.id === t.endId ? '<span class="badge">End</span>' : ""}</div><div class="actions"><button class="icon-button" data-edit="${esc(p.id)}" aria-label="Edit ${esc(p.name)}">Edit</button><button class="icon-button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button></div></article>`).join("") : `<div class="empty">A place for every stop.<br>Add your first location to get started.</div>`}</section><aside><div class="tip"><h3>Collect now. Plan later.</h3><p>Paste a Google Maps or Waze link, an address, or coordinates. Places save automatically when you tap Save.</p><p>Map links fill the name and coordinates automatically when available. You can edit them before saving.</p></div><button class="wide" data-view="plan" ${t.places.length ? "" : "disabled"}>Choose start and end →</button><p class="footnote">Up to 20 intermediate stops, with separate start and end points.</p></aside></div>`;
 }
 function overview(plan) {
   const points = plan?.geometry;
@@ -193,7 +194,7 @@ function openEditor(id = null) {
     : "Add a location";
   document.querySelector("#form-error").textContent = "";
   dialog.showModal();
-  setTimeout(() => form.elements.name.focus(), 0);
+  setTimeout(() => form.elements.address.focus(), 0);
 }
 async function calculate(manual = false) {
   if (busy) return;
@@ -427,15 +428,18 @@ app.addEventListener("click", (e) => {
     notice(error.message, true);
   }
 });
-form.addEventListener("submit", (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
+    if (!form.elements.latitude.value.trim() && !form.elements.longitude.value.trim()) {
+      const ok = await extractPlace();
+      if (!ok && /https?:\/\//.test(form.elements.address.value)) return;
+    }
     const values = Object.fromEntries(new FormData(form)),
       has = values.latitude.trim() !== "" || values.longitude.trim() !== "";
-    if (!values.name.trim()) throw Error("Enter a place name.");
     const place = {
       id: values.id || uid(),
-      name: values.name.trim(),
+      name: values.name.trim() || placeName(values.address, (trips.find((t) => t.id === selected)?.places.length || 0) + 1),
       address: values.address.trim(),
       latitude: has ? Number(values.latitude) : null,
       longitude: has ? Number(values.longitude) : null,
@@ -457,17 +461,74 @@ form.addEventListener("submit", (e) => {
     document.querySelector("#form-error").textContent = error.message;
   }
 });
-document.querySelector("#extract").addEventListener("click", () => {
-  const p = coordinates(form.elements.address.value);
-  if (p) {
-    form.elements.latitude.value = p.latitude;
-    form.elements.longitude.value = p.longitude;
-    document.querySelector("#form-error").textContent =
-      "Coordinates extracted. Please confirm the destination.";
-  } else
-    document.querySelector("#form-error").textContent =
-      "No explicit coordinates found. Paste a longer link or enter coordinates manually.";
+let extractionGeneration = 0;
+let extractionController = null;
+let extractionTimer;
+let autoCoordinates = null;
+let autoName = "";
+async function extractPlace() {
+  clearTimeout(extractionTimer);
+  const generation = ++extractionGeneration;
+  extractionController?.abort();
+  extractionController = new AbortController();
+  const source = form.elements.address.value.trim();
+  const errorBox = document.querySelector("#form-error");
+  let details = coordinates(source);
+  const suggestedName = placeName(source, (trips.find((t) => t.id === selected)?.places.length || 0) + 1);
+  if (!form.elements.name.value.trim() || form.elements.name.value === autoName) {
+    form.elements.name.value = suggestedName;
+    autoName = suggestedName;
+  }
+  if (!details && /https?:\/\//.test(source)) {
+    errorBox.textContent = "Reading map link…";
+    try {
+      const response = await fetch(new URL("../v1/places/resolve", location.href), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: source }), signal: extractionController.signal,
+      });
+      const body = await response.json();
+      if (!response.ok) throw Error(body.error?.message || "Could not read this link. Retry extraction.");
+      if (!resolved(body)) throw Error("This link did not provide a destination position.");
+      details = body;
+    } catch (error) {
+      if (generation === extractionGeneration && dialog.open && error.name !== "AbortError") errorBox.textContent = error.message;
+      return false;
+    }
+  }
+  if (generation !== extractionGeneration || !dialog.open || source !== form.elements.address.value.trim()) return false;
+  if (details) {
+    form.elements.latitude.value = details.latitude;
+    form.elements.longitude.value = details.longitude;
+    autoCoordinates = [String(details.latitude), String(details.longitude)];
+    if (details.name && (!form.elements.name.value.trim() || form.elements.name.value === autoName)) {
+      form.elements.name.value = details.name;
+      autoName = details.name;
+    }
+    errorBox.textContent = "Map position extracted. You can save this place now.";
+    return true;
+  }
+  errorBox.textContent = "";
+  return false;
+}
+form.elements.address.addEventListener("input", () => {
+  extractionGeneration++;
+  extractionController?.abort();
+  if (/https?:\/\//.test(form.elements.address.value) || (autoCoordinates && form.elements.latitude.value === autoCoordinates[0] && form.elements.longitude.value === autoCoordinates[1])) {
+    form.elements.latitude.value = "";
+    form.elements.longitude.value = "";
+  }
+  autoCoordinates = null;
+  clearTimeout(extractionTimer);
+  extractionTimer = setTimeout(extractPlace, 300);
 });
+dialog.addEventListener("close", () => {
+  extractionGeneration++;
+  extractionController?.abort();
+  clearTimeout(extractionTimer);
+  autoCoordinates = null;
+  autoName = "";
+});
+document.querySelector("#extract").addEventListener("click", extractPlace);
 document
   .querySelectorAll("[data-close]")
   .forEach((button) => button.addEventListener("click", () => dialog.close()));

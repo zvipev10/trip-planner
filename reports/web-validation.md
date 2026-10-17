@@ -47,3 +47,25 @@ The previous direct live API check returned a valid Routino route at the VM's
 `/trip-planner/v1/routes/optimize` endpoint. This browser smoke test used the local
 engine, not a remote deployed copy of the new web page. Public HTTP API
 unauthenticated usage and production capacity remain unchanged by this feature.
+
+
+## Automatic paste extraction update
+
+Names are optional and default to an extracted label or `Place N`. Pasting now
+triggers extraction without another tap; Save also awaits extraction when needed.
+Google destination `!3d...!4d...` data, explicit coordinate queries and Waze
+geohashes are supported. The backend follows up to six allowlisted map redirects,
+with a 20-second total timeout and a bounded page read. Canonical destination
+metadata may supply coordinates/names; camera positions and unrelated page
+markers are rejected. Address geocoding is not implemented.
+
+Validation: 56 backend tests and 16 Node tests passed. A new Chromium mobile
+390×844 smoke check verified automatic coordinates/name extraction, numbered
+fallbacks, saving immediately after paste, mocked short-link resolution and
+clearing old coordinates when changing a link. Redirect resolution is covered
+with mocked HTTP tests, including blocked private-host redirects and canonical
+metadata. This is not physical iPhone testing or a live short-link provider test.
+The exact failing link reported by the user has not yet been provided.
+
+Deploy by pulling the repository, reinstalling the backend package, and restarting
+`trip-planner`. Updated module URL versions ensure Safari loads the changed code.

@@ -47,13 +47,50 @@ export function coordinates(text) {
   if (!link) return null;
   try {
     const url = new URL(link[0]);
-    for (const k of ["ll", "q", "query"]) {
+    const destination = decodeURIComponent(url.href).match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+    if (destination && pair(`${destination[1]},${destination[2]}`)) return pair(`${destination[1]},${destination[2]}`);
+    const hash = /(?:^|\.)waze\.com$/.test(url.hostname) && url.pathname.match(/\/ul\/h([0-9bcdefghjkmnpqrstuvwxyz]{6,12})(?:$|\/)/);
+    if (hash) {
+      const bounds = [[-180, 180], [-90, 90]];
+      let axis = 0;
+      for (const char of hash[1]) {
+        const value = "0123456789bcdefghjkmnpqrstuvwxyz".indexOf(char);
+        for (let bit = 4; bit >= 0; bit--) {
+          const b = bounds[axis], mid = (b[0] + b[1]) / 2;
+          b[(value >> bit) & 1 ? 0 : 1] = mid;
+          axis = 1 - axis;
+        }
+      }
+      return { latitude: (bounds[1][0] + bounds[1][1]) / 2, longitude: (bounds[0][0] + bounds[0][1]) / 2 };
+    }
+    for (const k of ["destination", "ll", "q", "query"]) {
       const v = url.searchParams.get(k);
       if (v && pair(v)) return pair(v);
     }
   } catch {}
   return null;
 }
+export function placeName(text, number = 1) {
+  const link = text.match(/https?:\/\/[^\s<>]+/);
+  if (link) {
+    try {
+      const url = new URL(link[0]);
+      const segment = url.pathname.match(/\/maps\/place\/([^/]+)/);
+      if (segment) {
+        const name = decodeURIComponent(segment[1]).replace(/\+/g, " ");
+        if (!/^[\d.,+ -]+$/.test(name)) return name.slice(0, 200);
+      }
+      for (const key of ["name", "venue_name", "q", "query"]) {
+        const value = url.searchParams.get(key);
+        if (value && !/^(?:loc:)?[\d.,+ -]+$/.test(value) && !value.startsWith("place_id:")) return value.slice(0, 200);
+      }
+      const label = text.slice(0, link.index).trim().replace(/[\s:–-]+$/, "");
+      if (label) return label.slice(0, 200);
+    } catch {}
+  }
+  return `Place ${number}`;
+}
+
 export function requestFor(trip, manualOrder = null) {
   const first = trip.places.find((p) => p.id === trip.startId),
     last = trip.places.find((p) => p.id === trip.endId);
