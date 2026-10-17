@@ -1,0 +1,31 @@
+name: iOS build
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+      - name: Generate project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build and test on iPhone simulator
+        working-directory: ios
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for group in devices.values() for d in group if d["isAvailable"] and "iPhone" in d["name"]))')
+          xcodebuild -project TripPlanner.xcodeproj -scheme TripPlanner -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath build -resultBundlePath TestResults.xcresult CODE_SIGNING_ALLOWED=NO test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-test-results
+          path: ios/TestResults.xcresult
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trip-planner-ios-simulator
+          path: ios/build/Build/Products/Debug-iphonesimulator/TripPlanner.app
+          retention-days: 7

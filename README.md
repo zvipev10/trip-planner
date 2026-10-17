@@ -122,3 +122,13 @@ The CI workflow builds and publishes a debug APK on pushes and pull requests.
 This is a development build, not a signed production release. Local trip/location
 editing and endpoint selection are implemented; routing and map display remain
 backend-only and are not yet connected to the Android screens.
+
+
+## iOS
+
+A native SwiftUI prototype is in [ios/](ios/README.md), for iOS 17+. It includes
+local trips/locations, endpoint selection, route optimization against the existing
+VM API, ordered results and total distance. An iOS Simulator CI workflow builds
+and tests it without Apple signing credentials. Physical iPhone installation
+requires Xcode provisioning or TestFlight; simulator artifacts are not phone apps.
+See the iOS README for steps and current limitations.

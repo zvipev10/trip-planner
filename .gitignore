@@ -21,3 +21,7 @@ dist/
 
 .android-user/
 .jdk/
+ios/*.xcodeproj/
+**/xcuserdata/
+*.xcresult/
+.DS_Store
