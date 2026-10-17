@@ -33,6 +33,8 @@ data class TripLocation(
     val resolved: Boolean get() = latitude != null && longitude != null
 }
 
+data class TripSnapshot(@Embedded val trip: Trip, @Relation(parentColumn = "id", entityColumn = "tripId") val locations: List<TripLocation>)
+
 data class TripSummary(@Embedded val trip: Trip, val locationCount: Int)
 
 @Dao
@@ -48,6 +50,10 @@ abstract class TripDao {
 
     @Query("SELECT * FROM locations WHERE tripId = :tripId ORDER BY createdAt, id")
     abstract fun locations(tripId: String): Flow<List<TripLocation>>
+
+    @Transaction
+    @Query("SELECT * FROM trips WHERE id = :id")
+    abstract suspend fun snapshot(id: String): TripSnapshot?
 
     @Insert abstract suspend fun insertTrip(trip: Trip)
     @Upsert abstract suspend fun upsertLocation(location: TripLocation)

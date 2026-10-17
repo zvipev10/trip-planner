@@ -1,8 +1,10 @@
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 
 from .config import configured_provider
 from .models import Geometry, RouteRequest, RouteResponse
@@ -25,6 +27,11 @@ def get_provider() -> RoutingProvider:
 @app.exception_handler(PlanningError)
 async def planning_error(_request: Request, exc: PlanningError):
     return JSONResponse(status_code=exc.status, content={"error": {"code": exc.code, "message": exc.message, "locationIds": exc.location_ids}})
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request: Request, _exc: RequestValidationError):
+    return JSONResponse(status_code=422, content={"error": {"code": "invalid_request", "message": "Check endpoint coordinates, unique location IDs, and the 20-stop limit.", "locationIds": []}})
 
 
 @app.get("/health")
@@ -51,7 +58,11 @@ def calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
         # Permit integer-meter rounding, never silently display a different profile.
         if any(a is None or abs(a - b) > max(2, a * 0.001) for a, b in zip(expected, road.leg_distances)):
             raise PlanningError("routing_profile_mismatch", "Matrix and route distances disagree; provider validation is required.", 502)
-    return RouteResponse(revision=request.revision, orderedStopIds=[p.id for p in ordered[1:-1]], distanceMeters=sum(road.leg_distances), legDistancesMeters=road.leg_distances, geometry=Geometry(coordinates=road.coordinates), status="optimized" if reorder else "manual", provider=provider.name)
+    try:
+        geometry = Geometry(coordinates=road.coordinates)
+    except ValidationError as exc:
+        raise PlanningError("invalid_provider_response", "Routing provider returned invalid geometry.", 502) from exc
+    return RouteResponse(revision=request.revision, orderedStopIds=[p.id for p in ordered[1:-1]], distanceMeters=sum(road.leg_distances), legDistancesMeters=road.leg_distances, geometry=geometry, status="optimized" if reorder else "manual", provider=provider.name)
 
 
 @app.post("/v1/routes/optimize", response_model=RouteResponse)

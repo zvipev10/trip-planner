@@ -24,7 +24,54 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
     val locations = selectedId.flatMapLatest { id -> if (id == null) flowOf(emptyList()) else dao.locations(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun select(id: String?) { saved["tripId"] = id; saved["screen"] = "locations" }
+    val plan = MutableStateFlow<RoutePlan?>(null)
+    val routing = MutableStateFlow(false)
+    private var routeGeneration = 0L
+    private var routeJob: kotlinx.coroutines.Job? = null
+
+    fun cancelRoute() { routeGeneration++; routeJob?.cancel(); routeJob = null; routing.value = false }
+
+    fun moveStop(index: Int, delta: Int) {
+        if (routing.value || saving.value) return
+        val current = plan.value ?: return
+        val target = index + delta
+        if (index !in current.order.indices || target !in current.order.indices) return
+        val order = current.order.toMutableList()
+        java.util.Collections.swap(order, index, target)
+        plan.value = current.copy(order = order, distance = null, manual = true)
+    }
+
+    fun calculateRoute(manual: Boolean = false) {
+        val id = selectedId.value ?: return
+        if (routing.value || saving.value) return
+        val generation = ++routeGeneration
+        routing.value = true
+        error.value = null
+        routeJob = viewModelScope.launch {
+            try {
+                val snapshot = requireNotNull(dao.snapshot(id)) { "Trip no longer exists." }
+                val previous = plan.value?.takeIf { it.tripId == id && it.revision == snapshot.trip.revision }
+                val request = routeRequest(snapshot, if (manual) requireNotNull(previous) { "Optimize the route first." }.order else null)
+                val service = routeService()
+                val result = validateRoute(if (manual) service.calculate(request) else service.optimize(request), request, manual)
+                if (generation == routeGeneration && selectedId.value == id && dao.findTrip(id)?.revision == request.revision) {
+                    plan.value = RoutePlan(id, request.revision, requireNotNull(result.orderedStopIds), result.distanceMeters, manual)
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: retrofit2.HttpException) {
+                error.value = when (failure.code()) {
+                    422 -> "Server rejected these locations. Check endpoints and coordinates."
+                    503 -> "Routing is unavailable. Please try again later."
+                    else -> "Routing failed (HTTP ${failure.code()}). Please try again."
+                }
+            } catch (_: java.io.IOException) { error.value = "Could not reach the routing server. Check your connection and retry." }
+            catch (failure: IllegalArgumentException) { error.value = failure.message ?: "Invalid route. Check your locations." }
+            catch (_: Exception) { error.value = "Could not calculate the route. Please try again." }
+            finally { if (generation == routeGeneration) routing.value = false }
+        }
+    }
+
+    fun select(id: String?) { cancelRoute(); plan.value = null; saved["tripId"] = id; saved["screen"] = "locations" }
     fun showEndpoints() { saved["screen"] = "endpoints" }
     fun showLocations() { saved["screen"] = "locations" }
     fun acceptShare(text: String) { saved["share"] = text.take(16000) }
@@ -32,6 +79,8 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
 
     private fun write(onSuccess: () -> Unit = {}, action: suspend () -> Unit) {
         if (saving.value) return
+        cancelRoute()
+        plan.value = null
         saving.value = true
         error.value = null
         viewModelScope.launch {

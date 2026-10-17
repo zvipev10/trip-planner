@@ -13,7 +13,7 @@ The goal is a free app without a paid routing API dependency.
 | OR-Tools stop ordering | Implemented; up to 20 intermediate stops |
 | Routino slim routing | Implemented and tested against a real regional road database |
 | GraphHopper adapter | Implemented with mocked tests; live configuration unvalidated |
-| Kotlin/Compose Android app | Work in progress; local trips, location editing, share intake and endpoints authored |
+| Kotlin/Compose Android app | Local trips, share intake, endpoints, optimization and manual stop ordering |
 | Android build and unit tests | Debug APK, unit tests and lint passed in GitHub Actions |
 | Android device testing | Not yet run on an emulator or physical phone |
 | Automatic Google Maps/Waze link resolution | Not implemented; Android preserves links and extracts explicit coordinate queries |
@@ -100,14 +100,34 @@ cd android
 ./gradlew :app:assembleDebug
 ```
 
-A configured Android SDK and JDK 17 are required. GitHub Actions has successfully
-built the debug APK and passed unit tests and lint. See the
-[verified build](https://github.com/zvipev10/trip-planner/actions/runs/39047260207)
-and its `trip-planner-debug` artifact (retained for seven days). Download the ZIP,
-extract `app-debug.apk`, and install it on an Android 8+ device for testing.
+A configured Android SDK and JDK 17 are required. The current update passed
+local debug APK compilation, 20 unit tests, and lint. GitHub Actions runs the
+same checks and publishes a `trip-planner-debug` artifact (retained seven days)
+under the [latest Android build](https://github.com/zvipev10/trip-planner/actions/workflows/android.yml).
+Download its ZIP, extract `app-debug.apk`, and install it on Android 8+.
 No emulator or physical-device test has been recorded yet. Addresses and
-short links can be collected unresolved; route calculation and map display are
-not wired into the Android UI yet. Start and end can reference the same location.
+short links can be collected unresolved; confirm their coordinates before routing.
+Android supports optimization, distance results, and manual intermediate-stop
+ordering with distance recalculation. Start and end stay fixed and may reference
+the same saved location. Route results last while the trip is open; locations
+and endpoints persist in Room. Map display is not implemented.
+
+Debug builds connect to `http://151.145.93.180/trip-planner/`; cleartext HTTP is
+permitted only for that host. Release builds require configuring `API_URL` in
+`android/app/build.gradle.kts` with an HTTPS backend URL. Android sends no trip
+title or place names to the routing API, only IDs and coordinates.
+
+To deploy the backend changes on the existing VM:
+
+```bash
+cd /home/ubuntu/trip-planner
+git pull --ff-only
+.venv/bin/python -m pip install --no-deps -e ./backend
+sudo systemctl restart trip-planner
+```
+
+The API paths and request format are unchanged; both web and Android clients
+use the same optimization and manual-calculation endpoints.
 
 ## Repository boundaries
 
@@ -120,8 +140,9 @@ upstream licenses and OpenStreetMap data attribution.
 Android validation details: [build report](reports/android-validation.md).
 The CI workflow builds and publishes a debug APK on pushes and pull requests.
 This is a development build, not a signed production release. Local trip/location
-editing and endpoint selection are implemented; routing and map display remain
-backend-only and are not yet connected to the Android screens.
+editing, endpoint selection and routing are implemented. Map display still
+requires implementation. Failed calculations preserve the current manual order
+so the user can retry; edits invalidate results and cancel in-flight requests.
 
 
 ## iOS

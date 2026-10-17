@@ -112,3 +112,21 @@ def test_unconfigured_service(payload):
         response = client.post("/v1/routes/optimize", json=payload)
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "provider_not_configured"
+
+
+def test_validation_error_has_client_envelope(client, payload):
+    payload["start"]["latitude"] = 100
+    response = client.post("/v1/routes/optimize", json=payload)
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+
+
+def test_invalid_provider_geometry_is_502(client, payload):
+    class InvalidGeometry(FixtureProvider):
+        def route(self, points, policy):
+            road = super().route(points, policy)
+            return RoadRoute(road.leg_distances, [(181, 32), (34, 32)])
+    app.dependency_overrides[get_provider] = InvalidGeometry
+    response = client.post("/v1/routes/optimize", json=payload)
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "invalid_provider_response"

@@ -57,6 +57,8 @@ private fun TripApp(model: TripViewModel) {
     val shared by model.pendingShare.collectAsStateWithLifecycle()
     val error by model.error.collectAsStateWithLifecycle()
     val saving by model.saving.collectAsStateWithLifecycle()
+    val routing by model.routing.collectAsStateWithLifecycle()
+    val routePlan by model.plan.collectAsStateWithLifecycle()
     val trip = activeTrip?.takeIf { it.id == selectedId }
     val locations = allLocations.filter { it.tripId == selectedId }
     var creating by rememberSaveable { mutableStateOf(false) }
@@ -109,22 +111,44 @@ private fun TripApp(model: TripViewModel) {
                 }
             } else if (trip != null) {
                 if (screen == "endpoints") {
-                    Text("2 · Start and end", style = MaterialTheme.typography.headlineSmall)
-                    Text("Choose both endpoints. Use the same place for a round trip, or choose different places.")
-                    EndpointCard("Starting point", locations.find { it.id == trip.startId }) { endpointPicker = "start" }
-                    EndpointCard("Ending point", locations.find { it.id == trip.endId }) { endpointPicker = "end" }
-                    OutlinedButton(onClick = { adding = true }, enabled = !saving) { Text("Add another place") }
-                    val selectedEndpoints = trip.startId != null && trip.endId != null
-                    val unresolved = locations.count { !it.resolved }
-                    Card {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Planning status", fontWeight = FontWeight.Bold)
-                            Text(when {
-                                !selectedEndpoints -> "Select a starting point and an ending point."
-                                unresolved > 0 -> "$unresolved locations still need a confirmed map position."
-                                else -> "Your locations and endpoints are saved."
-                            })
-                            Text("Route optimization will be available after the routing service is connected.")
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("2 · Start and end", style = MaterialTheme.typography.headlineSmall)
+                        Text("Choose both endpoints. Use the same place for a round trip, or choose different places.")
+                        EndpointCard("Starting point", locations.find { it.id == trip.startId }) { endpointPicker = "start" }
+                        EndpointCard("Ending point", locations.find { it.id == trip.endId }) { endpointPicker = "end" }
+                        OutlinedButton(onClick = { adding = true }, enabled = !saving) { Text("Add another place") }
+                        val selectedEndpoints = trip.startId != null && trip.endId != null
+                        val unresolved = locations.count { !it.resolved }
+                        Card {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Planning status", fontWeight = FontWeight.Bold)
+                                Text(when {
+                                    !selectedEndpoints -> "Select a starting point and an ending point."
+                                    unresolved > 0 -> "$unresolved locations still need a confirmed map position."
+                                    else -> "Your locations and endpoints are saved."
+                                })
+                                Button(onClick = { model.calculateRoute() }, enabled = selectedEndpoints && unresolved == 0 && !saving && !routing) { Text("Optimize shortest route") }
+                                if (routing) {
+                                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                                    TextButton(onClick = model::cancelRoute) { Text("Cancel") }
+                                }
+                                val current = routePlan?.takeIf { it.tripId == trip.id && it.revision == trip.revision }
+                                if (current != null) {
+                                    Text(current.distance?.let { String.format(java.util.Locale.getDefault(), "Driving distance: %.2f km", it / 1000.0) } ?: "Order changed. Recalculate the distance.")
+                                    Text(if (current.manual) "Manual order" else "Optimized order", fontWeight = FontWeight.Bold)
+                                    Text("Start: ${locations.find { it.id == trip.startId }?.name}")
+                                    current.order.forEachIndexed { index, id ->
+                                        Text("${index + 1}. ${locations.find { it.id == id }?.name ?: id}")
+                                        Row {
+                                            TextButton(onClick = { model.moveStop(index, -1) }, enabled = index > 0 && !routing && !saving) { Text("Move up") }
+                                            TextButton(onClick = { model.moveStop(index, 1) }, enabled = index < current.order.lastIndex && !routing && !saving) { Text("Move down") }
+                                        }
+                                    }
+                                    Text("End: ${locations.find { it.id == trip.endId }?.name}")
+                                    OutlinedButton(onClick = { model.calculateRoute(true) }, enabled = !routing && !saving) { Text("Calculate this order") }
+                                    Text("Route results are kept while this trip is open. Saved locations stay on this device.", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
                         }
                     }
                 } else {

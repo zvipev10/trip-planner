@@ -1,3 +1,5 @@
+from typing import Annotated, Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -38,8 +40,11 @@ class RouteRequest(Model):
 
 
 class Geometry(Model):
-    type: str = "LineString"
-    coordinates: list[tuple[float, float]]
+    type: Literal["LineString"] = "LineString"
+    coordinates: list[tuple[
+        Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)],
+        Annotated[float, Field(ge=-90, le=90, allow_inf_nan=False)],
+    ]] = Field(min_length=2)
 
 
 class RouteResponse(Model):
