@@ -30,37 +30,38 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
     fun acceptShare(text: String) { saved["share"] = text.take(16000) }
     fun clearShare() { saved["share"] = null }
 
-    private fun write(action: suspend () -> Unit) {
+    private fun write(onSuccess: () -> Unit = {}, action: suspend () -> Unit) {
         if (saving.value) return
         saving.value = true
+        error.value = null
         viewModelScope.launch {
-            try { action() }
+            try { action(); onSuccess() }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { error.value = "Could not save changes. Please try again." }
             finally { saving.value = false }
         }
     }
 
-    fun createTrip(title: String) {
+    fun createTrip(title: String, onSaved: () -> Unit = {}) {
         if (title.isBlank()) return
-        write {
+        write(onSuccess = onSaved) {
             val id = UUID.randomUUID().toString()
             dao.insertTrip(Trip(id, title.trim()))
             select(id)
         }
     }
 
-    fun saveLocation(existing: TripLocation?, name: String, address: String, lat: Double?, lon: Double?, source: String? = null, shared: Boolean = false) {
+    fun saveLocation(existing: TripLocation?, name: String, address: String, lat: Double?, lon: Double?, source: String? = null, shared: Boolean = false, onSaved: () -> Unit = {}) {
         val id = selectedId.value ?: return
-        write {
+        write(onSuccess = onSaved) {
             dao.saveLocation(TripLocation(existing?.id ?: UUID.randomUUID().toString(), id, name.trim(), address.trim(), lat, lon, source ?: existing?.source, existing?.createdAt ?: System.currentTimeMillis()))
-            if (shared) clearShare()
+            if (shared && pendingShare.value == source) clearShare()
         }
     }
 
-    fun remove(location: TripLocation) { write { dao.removeLocation(location) } }
-    fun endpoint(location: TripLocation, start: Boolean) {
+    fun remove(location: TripLocation, onSaved: () -> Unit = {}) { write(onSuccess = onSaved) { dao.removeLocation(location) } }
+    fun endpoint(location: TripLocation, start: Boolean, onSaved: () -> Unit = {}) {
         val id = selectedId.value ?: return
-        write { dao.setEndpoint(id, location.id, start) }
+        write(onSuccess = onSaved) { dao.setEndpoint(id, location.id, start) }
     }
 }

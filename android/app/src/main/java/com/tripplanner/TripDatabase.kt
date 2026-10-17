@@ -29,6 +29,7 @@ data class TripLocation(
     val source: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
 ) {
+    @get:Ignore
     val resolved: Boolean get() = latitude != null && longitude != null
 }
 

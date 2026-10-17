@@ -1,7 +1,6 @@
 package com.tripplanner
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -158,7 +157,7 @@ private fun TripApp(model: TripViewModel) {
         AlertDialog(onDismissRequest = { creating = false }, title = { Text("Create trip") }, text = {
             OutlinedTextField(value = title, onValueChange = { title = it.take(120) }, label = { Text("Trip title") }, singleLine = true)
         }, confirmButton = {
-            TextButton(enabled = title.isNotBlank() && !saving, onClick = { model.createTrip(title); creating = false }) { Text("Create") }
+            TextButton(enabled = title.isNotBlank() && !saving, onClick = { model.createTrip(title) { creating = false } }) { Text("Create") }
         }, dismissButton = { TextButton(onClick = { creating = false }) { Text("Cancel") } })
     }
     val editing = locations.find { it.id == editingId }
@@ -167,19 +166,21 @@ private fun TripApp(model: TripViewModel) {
             existing = editing,
             shared = if (importing) shared else null,
             saving = saving,
+            saveError = error,
             close = { adding = false; editingId = null; importing = false },
             save = { name, address, lat, lon ->
-                model.saveLocation(editing, name, address, lat, lon, if (importing) shared else null, importing)
-                adding = false; editingId = null; importing = false
+                model.saveLocation(editing, name, address, lat, lon, if (importing) shared else null, importing) {
+                    adding = false; editingId = null; importing = false
+                }
             },
-            remove = editing?.let { { model.remove(it); editingId = null } },
+            remove = editing?.let { { model.remove(it) { editingId = null } } },
         )
     }
     if (endpointPicker != null) {
         AlertDialog(onDismissRequest = { endpointPicker = null }, title = { Text(if (endpointPicker == "start") "Starting point" else "Ending point") }, text = {
             LazyColumn {
                 items(locations, key = { it.id }) { place ->
-                    TextButton(onClick = { model.endpoint(place, endpointPicker == "start"); endpointPicker = null }, enabled = !saving, modifier = Modifier.fillMaxWidth()) { Text(place.name) }
+                    TextButton(onClick = { model.endpoint(place, endpointPicker == "start") { endpointPicker = null } }, enabled = !saving, modifier = Modifier.fillMaxWidth()) { Text(place.name) }
                 }
             }
         }, confirmButton = {}, dismissButton = { TextButton(onClick = { endpointPicker = null }) { Text("Cancel") } })
@@ -197,18 +198,8 @@ private fun EndpointCard(label: String, place: TripLocation?, choose: () -> Unit
     }
 }
 
-private fun sharedCoordinates(text: String?): Pair<Double, Double>? {
-    if (text == null) return null
-    val candidate = runCatching {
-        val uri = Uri.parse(text.trim())
-        uri.getQueryParameter("ll") ?: uri.getQueryParameter("q") ?: uri.getQueryParameter("query") ?: text.trim()
-    }.getOrDefault(text.trim())
-    val parts = candidate.split(",").map { it.trim().toDoubleOrNull() }
-    return if (parts.size == 2 && parts[0] != null && parts[1] != null && parts[0]!!.isFinite() && parts[1]!!.isFinite() && parts[0]!! in -90.0..90.0 && parts[1]!! in -180.0..180.0) parts[0]!! to parts[1]!! else null
-}
-
 @Composable
-private fun LocationEditor(existing: TripLocation?, shared: String?, saving: Boolean, close: () -> Unit, save: (String, String, Double?, Double?) -> Unit, remove: (() -> Unit)?) {
+private fun LocationEditor(existing: TripLocation?, shared: String?, saving: Boolean, saveError: String?, close: () -> Unit, save: (String, String, Double?, Double?) -> Unit, remove: (() -> Unit)?) {
     val initial = remember(shared) { sharedCoordinates(shared) }
     var name by rememberSaveable(existing?.id, shared) { mutableStateOf(existing?.name ?: "") }
     var address by rememberSaveable(existing?.id, shared) { mutableStateOf(existing?.address ?: shared ?: "") }
@@ -224,6 +215,7 @@ private fun LocationEditor(existing: TripLocation?, shared: String?, saving: Boo
             OutlinedTextField(longitude, { longitude = it }, label = { Text("Longitude") }, singleLine = true)
             if (initial != null) Text("Coordinates extracted from shared text. Please confirm the destination.")
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+            if (saveError != null) Text(saveError, color = MaterialTheme.colorScheme.error)
             if (remove != null) TextButton(onClick = remove, enabled = !saving) { Text("Remove from trip") }
         }
     }, confirmButton = {
