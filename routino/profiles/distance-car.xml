@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Derived from Routino 3.4.4 routino-profiles.xml.
+Copyright 2010-2015, 2026 Andrew M. Bishop.
+Distributed under GNU Affero General Public License, version 3 or later.
+See licenses/Routino-AGPL-3.0.txt at the project root.
+Changes: neutral road preferences and exclusions for distance-focused car routing.
+-->
+<routino-profiles>
+  <profile name="distance-car" transport="motorcar">
+    <speeds>
+      <speed highway="motorway" kph="112" />
+      <speed highway="trunk" kph="96" />
+      <speed highway="primary" kph="96" />
+      <speed highway="secondary" kph="88" />
+      <speed highway="tertiary" kph="80" />
+      <speed highway="unclassified" kph="64" />
+      <speed highway="residential" kph="48" />
+      <speed highway="service" kph="32" />
+      <speed highway="track" kph="16" />
+      <speed highway="cycleway" kph="0" />
+      <speed highway="path" kph="0" />
+      <speed highway="steps" kph="0" />
+      <speed highway="ferry" kph="10" />
+    </speeds>
+    <preferences>
+      <preference highway="motorway" percent="100" />
+      <preference highway="trunk" percent="100" />
+      <preference highway="primary" percent="100" />
+      <preference highway="secondary" percent="100" />
+      <preference highway="tertiary" percent="100" />
+      <preference highway="unclassified" percent="100" />
+      <preference highway="residential" percent="100" />
+      <preference highway="service" percent="100" />
+      <preference highway="track" percent="0" />
+      <preference highway="cycleway" percent="0" />
+      <preference highway="path" percent="0" />
+      <preference highway="steps" percent="0" />
+      <preference highway="ferry" percent="0" />
+    </preferences>
+    <properties>
+      <property type="paved" percent="100" />
+      <property type="multilane" percent="50" />
+      <property type="bridge" percent="50" />
+      <property type="tunnel" percent="50" />
+      <property type="footroute" percent="50" />
+      <property type="bicycleroute" percent="50" />
+    </properties>
+    <restrictions>
+      <oneway obey="1" />
+      <turns obey="1" />
+      <weight limit="0.0" />
+      <height limit="0.0" />
+      <width limit="0.0" />
+      <length limit="0.0" />
+    </restrictions>
+  </profile>
+</routino-profiles>

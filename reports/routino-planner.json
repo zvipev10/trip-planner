@@ -1,0 +1,22 @@
+[
+  {
+    "intermediateStops": 5,
+    "directedPairRequests": 42,
+    "selectedLegRequests": 6,
+    "wallSeconds": 1.41,
+    "backendPeakRssMiB": 71.12,
+    "childPeakRssMiB": 71.12,
+    "distanceMeters": 11080,
+    "allStopsOnce": true
+  },
+  {
+    "intermediateStops": 20,
+    "directedPairRequests": 462,
+    "selectedLegRequests": 21,
+    "wallSeconds": 4.988,
+    "backendPeakRssMiB": 71.75,
+    "childPeakRssMiB": 71.75,
+    "distanceMeters": 21240,
+    "allStopsOnce": true
+  }
+]

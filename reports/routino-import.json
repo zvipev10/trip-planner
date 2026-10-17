@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/workspace/trip-planner/routino/vendor/routino-3.4.4/src/planetsplitter-slim",
+    "--dir=/workspace/trip-planner/routino/data/israel",
+    "--tagging=/workspace/trip-planner/routino/vendor/routino-3.4.4/xml/routino-tagging.xml",
+    "--sort-ram-size=64",
+    "--sort-threads=1",
+    "--loggable",
+    "--logtime",
+    "/workspace/trip-planner/routino/data/israel-and-palestine.osm.pbf"
+  ],
+  "exitCode": 0,
+  "wallSeconds": 33.244,
+  "peakRssMiB": 109.33,
+  "peakObservedDiskMiB": 480.12,
+  "finalDiskMiB": 72.57,
+  "addressSpaceLimitMiB": 512
+}
