@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import configured_provider
 from .models import Geometry, RouteRequest, RouteResponse
@@ -7,6 +10,12 @@ from .provider import PlanningError, RoutingProvider, UnconfiguredProvider
 from .solver import optimize, validate_matrix
 
 app = FastAPI(title="Israel Trip Planner", version="0.1.0")
+app.mount("/web", StaticFiles(directory=Path(__file__).with_name("web"), html=True), name="web")
+
+
+@app.get("/", include_in_schema=False)
+def web_home():
+    return RedirectResponse("web/")
 
 
 def get_provider() -> RoutingProvider:

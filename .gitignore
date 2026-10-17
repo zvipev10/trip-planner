@@ -25,3 +25,4 @@ ios/*.xcodeproj/
 **/xcuserdata/
 *.xcresult/
 .DS_Store
+reports/web/*.png

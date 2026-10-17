@@ -17,7 +17,7 @@ The goal is a free app without a paid routing API dependency.
 | Android build and unit tests | Debug APK, unit tests and lint passed in GitHub Actions |
 | Android device testing | Not yet run on an emulator or physical phone |
 | Automatic Google Maps/Waze link resolution | Not implemented; Android preserves links and extracts explicit coordinate queries |
-| Production deployment | Not deployed; user's Ubuntu VM remains unchanged |
+| Backend deployment | User-installed on Ubuntu; external health and routing requests verified |
 
 Trips are stored locally on Android using Room. A small backend supplies routing
 and optimization; there are no accounts or server-side trip database yet.
@@ -132,3 +132,15 @@ VM API, ordered results and total distance. An iOS Simulator CI workflow builds
 and tests it without Apple signing credentials. Physical iPhone installation
 requires Xcode provisioning or TestFlight; simulator artifacts are not phone apps.
 See the iOS README for steps and current limitations.
+
+
+## Mobile web (Safari / Android browsers)
+
+The buildless web app is served by FastAPI at `/web/` and calls the same-origin
+HTTP API. On the existing VM proxy, its URL after deployment is
+`http://151.145.93.180/trip-planner/web/`. It supports titled trips, local storage,
+pasted locations, endpoints, optimized order/distance, manual reordering with
+recalculation, backups and road-geometry overview. See [deployment instructions](web/README.md).
+No signing, paid browser SDK, or frontend Node server is needed. Addresses and
+short links still require confirmed coordinates. The code is ready for deployment;
+the VM must pull the update and restart its service.

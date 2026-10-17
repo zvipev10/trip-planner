@@ -1,0 +1,21 @@
+{
+  "optimizedDistance": "6.94 km",
+  "before": [
+    "Central Tel Aviv",
+    "Northern stop",
+    "Midtown stop",
+    "Southern stop"
+  ],
+  "after": [
+    "Central Tel Aviv",
+    "Midtown stop",
+    "Northern stop",
+    "Southern stop"
+  ],
+  "retryPreservesManualOrder": true,
+  "reverseProxyPrefix": "/trip-planner/",
+  "locationsSurviveReload": true,
+  "mobileOverflow": false,
+  "desktopOverflow": false,
+  "pageErrors": []
+}
