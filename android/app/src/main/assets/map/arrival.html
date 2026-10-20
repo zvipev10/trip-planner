@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="leaflet.css"><style>html,body,#map{height:100%;margin:0}</style></head><body><div id="map" aria-label="Choose arrival point"></div><script src="leaflet.js"></script><script>
+let map, marker;
+window.showArrival = p => {
+ if(map)map.remove();
+ map=L.map('map').setView([p.arrivalLatitude,p.arrivalLongitude],16);
+ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+ L.circleMarker([p.latitude,p.longitude],{color:'#a43',radius:8}).addTo(map).bindTooltip('Original destination');
+ marker=L.marker([p.arrivalLatitude,p.arrivalLongitude],{draggable:true,title:'Arrival point'}).addTo(map);
+ const choose=p=>{marker.setLatLng(p);location.href='arrival://choose?lat='+p.lat+'&lon='+p.lng};
+ map.on('click',e=>choose(e.latlng));marker.on('dragend',()=>choose(marker.getLatLng()));
+};</script></body></html>

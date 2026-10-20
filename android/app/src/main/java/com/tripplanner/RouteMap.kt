@@ -31,7 +31,7 @@ internal data class MapTrip(val places: List<MapPlace>, val startId: String?, va
 
 internal fun mapPayload(trip: Trip, locations: List<TripLocation>, plan: RoutePlan): MapTrip {
     require(plan.tripId == trip.id && plan.revision == trip.revision && plan.distance != null)
-    return MapTrip(locations.filter { it.tripId == trip.id }.map { MapPlace(it.id, it.name, it.latitude, it.longitude) },
+    return MapTrip(locations.filter { it.tripId == trip.id }.map { MapPlace(it.id, it.name, it.arrivalLatitude ?: it.latitude, it.arrivalLongitude ?: it.longitude) },
         trip.startId, trip.endId, MapPlan(plan.order, plan.geometry))
 }
 
@@ -58,12 +58,12 @@ fun RouteMap(trip: Trip, locations: List<TripLocation>, plan: RoutePlan) {
 }
 
 @SuppressLint("SetJavaScriptEnabled") // Bundled map renderer only; no JavaScript/native bridge.
-private class RouteMapView(context: Context) : WebView(context) {
+private class RouteMapView(context: Context, private val choose: ((Double, Double) -> Unit)? = null) : WebView(context) {
     private var latest: String? = null
     private var ready = false
     private val origin = "appassets.androidplatform.net"
-    private val files = mapOf("index.html" to "text/html", "map.css" to "text/css", "leaflet.css" to "text/css",
-        "leaflet.js" to "text/javascript", "route-map.mjs" to "text/javascript", "leaflet-LICENSE.txt" to "text/plain")
+    private val files = mapOf("index.html" to "text/html", "arrival.html" to "text/html", "map.css" to "text/css", "leaflet.css" to "text/css",
+        "leaflet.js" to "text/javascript", "route-map.mjs" to "text/javascript", "core.mjs" to "text/javascript", "leaflet-LICENSE.txt" to "text/plain")
 
     init {
         settings.javaScriptEnabled = true
@@ -84,6 +84,12 @@ private class RouteMapView(context: Context) : WebView(context) {
                 return WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                if (request.url.scheme == "arrival" && choose != null) {
+                    val lat = request.url.getQueryParameter("lat")?.toDoubleOrNull()
+                    val lon = request.url.getQueryParameter("lon")?.toDoubleOrNull()
+                    if (lat != null && lon != null && lat.isFinite() && lon.isFinite() && lat in -90.0..90.0 && lon in -180.0..180.0) choose.invoke(lat, lon)
+                    return true
+                }
                 if (request.url.host == origin && request.url.scheme == "https") return false
                 if (request.isForMainFrame && request.url.scheme == "https" && request.url.host in setOf("www.openstreetmap.org", "leafletjs.com")) {
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, request.url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
@@ -91,10 +97,10 @@ private class RouteMapView(context: Context) : WebView(context) {
                 return true
             }
             override fun onPageFinished(view: WebView, url: String) {
-                if (url == "https://$origin/assets/map/index.html") { ready = true; renderRoute() }
+                if (url == "https://$origin/assets/map/${if (choose == null) "index.html" else "arrival.html"}") { ready = true; renderRoute() }
             }
         }
-        loadUrl("https://$origin/assets/map/index.html")
+        loadUrl("https://$origin/assets/map/${if (choose == null) "index.html" else "arrival.html"}")
     }
 
     fun setRoute(json: String) {
@@ -104,7 +110,7 @@ private class RouteMapView(context: Context) : WebView(context) {
     }
 
     private fun renderRoute() {
-        latest?.let { evaluateJavascript("window.showRoute($it);", null) }
+        latest?.let { evaluateJavascript("window.${if (choose == null) "showRoute" else "showArrival"}($it);", null) }
     }
 
     @SuppressLint("ClickableViewAccessibility") // WebView exposes the map's DOM controls to accessibility services.
@@ -112,4 +118,15 @@ private class RouteMapView(context: Context) : WebView(context) {
         parent?.requestDisallowInterceptTouchEvent(event.actionMasked != MotionEvent.ACTION_UP && event.actionMasked != MotionEvent.ACTION_CANCEL)
         return super.onTouchEvent(event)
     }
+}
+
+
+@Composable
+fun ArrivalMap(place: TripLocation, onChoose: (Double, Double) -> Unit) {
+    val context = LocalContext.current
+    val callback = androidx.compose.runtime.rememberUpdatedState(onChoose)
+    val view = remember(context, place.id) { RouteMapView(context) { lat, lon -> callback.value(lat, lon) } }
+    val json = remember(place) { Gson().toJson(mapOf("latitude" to place.latitude, "longitude" to place.longitude, "arrivalLatitude" to (place.arrivalLatitude ?: place.latitude), "arrivalLongitude" to (place.arrivalLongitude ?: place.longitude))) }
+    AndroidView(factory = {view}, modifier = Modifier.fillMaxWidth().height(260.dp), onReset = null,
+        onRelease = {it.destroy()}, update = {it.setRoute(json)})
 }

@@ -62,12 +62,15 @@ private fun TripApp(model: TripViewModel) {
     val saving by model.saving.collectAsStateWithLifecycle()
     val routing by model.routing.collectAsStateWithLifecycle()
     val routePlan by model.plan.collectAsStateWithLifecycle()
+    val failedLocations by model.failedLocations.collectAsStateWithLifecycle()
     val trip = activeTrip?.takeIf { it.id == selectedId }
     val locations = allLocations.filter { it.tripId == selectedId }
     var creating by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable(selectedId) { mutableStateOf<String?>(null) }
     var adding by rememberSaveable(selectedId) { mutableStateOf(false) }
     var importing by rememberSaveable(selectedId) { mutableStateOf(false) }
+    var arrivalId by rememberSaveable(selectedId) { mutableStateOf<String?>(null) }
+    var editEndpoints by rememberSaveable(selectedId) { mutableStateOf(false) }
     var endpointPicker by rememberSaveable(selectedId) { mutableStateOf<String?>(null) }
 
     BackHandler(enabled = selectedId != null && !adding && editingId == null && !importing && endpointPicker == null) {
@@ -138,9 +141,27 @@ private fun TripApp(model: TripViewModel) {
                 if (screen == "endpoints") {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("2 · Start and end", style = MaterialTheme.typography.headlineSmall)
-                        Text("Choose both endpoints. Use the same place for a round trip, or choose different places.")
+                        Text("Endpoints are saved. Use the same place for a round trip.")
+                        if (trip.startId == null || trip.endId == null || editEndpoints) {
                         EndpointCard("Starting point", locations.find { it.id == trip.startId }) { endpointPicker = "start" }
                         EndpointCard("Ending point", locations.find { it.id == trip.endId }) { endpointPicker = "end" }
+                        } else {
+                            Text("Start: ${locations.find { it.id == trip.startId }?.name.orEmpty()}")
+                            Text("End: ${locations.find { it.id == trip.endId }?.name.orEmpty()}")
+                        }
+                        TextButton(onClick = { editEndpoints = !editEndpoints }) { Text(if (editEndpoints) "Done editing endpoints" else "Edit start & end") }
+                        locations.filter { it.id in failedLocations }.forEach { place ->
+                            OutlinedCard(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Location needs attention", fontWeight = FontWeight.Bold)
+                                    Text(place.name, style = MaterialTheme.typography.titleMedium)
+                                    Text("No nearby driving road. Choose an arrival point; original destination stays saved. Access unverified.")
+                                    Button(onClick = { arrivalId = place.id }, enabled = !saving && !routing) { Text("Choose arrival point") }
+                                    OutlinedButton(onClick = { editingId = place.id }) { Text("Edit location") }
+                                    if (place.arrivalLatitude != null) TextButton(onClick = { model.arrival(place, null, null) }) { Text("Reset to original location") }
+                                }
+                            }
+                        }
                         OutlinedButton(onClick = { adding = true }, enabled = !saving) { Text("Add another place") }
                         val selectedEndpoints = trip.startId != null && trip.endId != null
                         val unresolved = locations.count { !it.resolved }
@@ -178,7 +199,7 @@ private fun TripApp(model: TripViewModel) {
                                     RouteStop("END", locations.find { it.id == trip.endId }?.name.orEmpty(), "E")
                                     OutlinedButton(onClick = { model.calculateRoute(true) }, enabled = !routing && !saving) { Text("Calculate this order") }
                                     if (current.distance != null) RouteMap(trip, locations, current)
-                                    Text("Route results are kept while this trip is open. Saved locations stay on this device.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Last calculated route and endpoints are saved on this device. Editing locations requires recalculation.", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
@@ -215,6 +236,27 @@ private fun TripApp(model: TripViewModel) {
         }, confirmButton = {
             TextButton(enabled = title.isNotBlank() && !saving, onClick = { model.createTrip(title) { creating = false } }) { Text("Create") }
         }, dismissButton = { TextButton(onClick = { creating = false }) { Text("Cancel") } })
+    }
+    val arrivalPlace = locations.find { it.id == arrivalId }
+    if (arrivalPlace != null) {
+        var lat by rememberSaveable(arrivalPlace.id) { mutableStateOf((arrivalPlace.arrivalLatitude ?: arrivalPlace.latitude)?.toString().orEmpty()) }
+        var lon by rememberSaveable(arrivalPlace.id) { mutableStateOf((arrivalPlace.arrivalLongitude ?: arrivalPlace.longitude)?.toString().orEmpty()) }
+        val latitude = lat.toDoubleOrNull(); val longitude = lon.toDoubleOrNull()
+        val valid = latitude != null && longitude != null && latitude.isFinite() && longitude.isFinite() && latitude in -90.0..90.0 && longitude in -180.0..180.0
+        AlertDialog(onDismissRequest = { arrivalId = null }, title = { Text("Choose arrival point") }, text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(arrivalPlace.name)
+                Text("Original destination stays saved. Tap the map or enter coordinates. Access unverified.")
+                if (arrivalPlace.latitude != null && arrivalPlace.longitude != null) ArrivalMap(arrivalPlace) { a, b -> lat = a.toString(); lon = b.toString() }
+                OutlinedTextField(value = lat, onValueChange = {lat = it}, label = {Text("Arrival latitude")})
+                OutlinedTextField(value = lon, onValueChange = {lon = it}, label = {Text("Arrival longitude")})
+                if (valid && arrivalPlace.latitude != null && arrivalPlace.longitude != null) {
+                    val meters = FloatArray(1)
+                    android.location.Location.distanceBetween(arrivalPlace.latitude, arrivalPlace.longitude, latitude!!, longitude!!, meters)
+                    Text("${meters[0].toInt()} m from original destination")
+                }
+            }
+        }, confirmButton = { TextButton(enabled = valid && !saving, onClick = {model.arrival(arrivalPlace, latitude, longitude); arrivalId = null}) {Text("Use this arrival point")} }, dismissButton = {TextButton(onClick = {arrivalId = null}) {Text("Cancel")}})
     }
     val editing = locations.find { it.id == editingId }
     if (trip != null && (adding || editing != null || importing)) {
