@@ -1,4 +1,6 @@
 from pathlib import Path
+import json
+import logging
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -13,6 +15,7 @@ from .provider import PlanningError, RoutingProvider, UnconfiguredProvider
 from .solver import optimize, validate_matrix
 
 app = FastAPI(title="Israel Trip Planner", version="0.1.0")
+logger = logging.getLogger("uvicorn.error")
 app.mount("/web", StaticFiles(directory=Path(__file__).with_name("web"), html=True), name="web")
 
 
@@ -27,11 +30,24 @@ def get_provider() -> RoutingProvider:
 
 @app.exception_handler(PlanningError)
 async def planning_error(_request: Request, exc: PlanningError):
+    logger.warning("routing_failure status=%s code=%s", exc.status, exc.code)
     return JSONResponse(status_code=exc.status, content={"error": {"code": exc.code, "message": exc.message, "locationIds": exc.location_ids}})
 
 
 @app.exception_handler(RequestValidationError)
 async def invalid_request(_request: Request, _exc: RequestValidationError):
+    # Never log inputs, error messages/context, point IDs, or unknown field names:
+    # validation errors can contain entire request bodies and private locations.
+    fields = {"body", "revision", "start", "end", "stops", "id", "latitude", "longitude", "roadPolicy", "avoidTolls", "avoidFerries", "avoidUnpaved"}
+    errors = [{"type": error["type"], "field": [part if isinstance(part, int) or part in fields else "unknown" for part in error["loc"]]} for error in _exc.errors()[:20]]
+    body = _exc.body if isinstance(_exc.body, dict) else {}
+    stops = body.get("stops")
+    points = [body.get("start"), *(stops if isinstance(stops, list) else []), body.get("end")]
+    ids = [point.get("id") for point in points if isinstance(point, dict) and isinstance(point.get("id"), str)]
+    duplicate_ids = len(ids) != len(set(ids))
+    endpoint = _request.url.path.rsplit("/", 1)[-1]
+    endpoint = endpoint if endpoint in {"optimize", "calculate", "resolve"} else "other"
+    logger.warning("request_validation_failed %s", json.dumps({"endpoint": endpoint, "errors": errors, "stopCount": len(stops) if isinstance(stops, list) else None, "duplicatePointIds": duplicate_ids}))
     return JSONResponse(status_code=422, content={"error": {"code": "invalid_request", "message": "Check endpoint coordinates, unique location IDs, and the 20-stop limit.", "locationIds": []}})
 
 
