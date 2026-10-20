@@ -101,7 +101,7 @@ cd android
 ```
 
 A configured Android SDK and JDK 17 are required. The current update passed
-local debug APK compilation, 20 unit tests, and lint. GitHub Actions runs the
+local debug APK compilation, 25 unit tests, and lint. GitHub Actions runs the
 same checks and publishes a `trip-planner-debug` artifact (retained seven days)
 under the [latest Android build](https://github.com/zvipev10/trip-planner/actions/workflows/android.yml).
 Download its ZIP, extract `app-debug.apk`, and install it on Android 8+.
@@ -110,7 +110,8 @@ short links can be collected unresolved; confirm their coordinates before routin
 Android supports optimization, distance results, and manual intermediate-stop
 ordering with distance recalculation. Start and end stay fixed and may reference
 the same saved location. Route results last while the trip is open; locations
-and endpoints persist in Room. Map display is not implemented.
+and endpoints persist in Room. Android 0.3.0 includes an interactive map showing
+the returned road geometry, labeled stops, zoom/pan and full-route fitting.
 
 Debug builds connect to `http://151.145.93.180/trip-planner/`; cleartext HTTP is
 permitted only for that host. Release builds require configuring `API_URL` in
@@ -140,8 +141,7 @@ upstream licenses and OpenStreetMap data attribution.
 Android validation details: [build report](reports/android-validation.md).
 The CI workflow builds and publishes a debug APK on pushes and pull requests.
 This is a development build, not a signed production release. Local trip/location
-editing, endpoint selection and routing are implemented. Map display still
-requires implementation. Failed calculations preserve the current manual order
+editing, endpoint selection and routing are implemented. An embedded Leaflet map displays the route and labeled stops. Failed calculations preserve the current manual order
 so the user can retry; edits invalidate results and cancel in-flight requests.
 
 

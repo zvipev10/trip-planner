@@ -41,3 +41,36 @@ share-sheet behavior, persistence across restarts and RTL layout still require
 Android device testing. Automatic address/short-link resolution and Android
 map display are not implemented. Non-blocking lint warnings concern dependency
 updates, the existing backup configuration and a missing application icon.
+
+
+## Android 0.3.0 map update — 2026-10-20
+
+The APK now includes a Leaflet/OpenStreetMap route map inside an Android WebView.
+The API geometry is retained as GeoJSON longitude/latitude pairs and converted by
+the shared map renderer. The map shows start/end and numbered stops, safe text
+popups, zoom/pan, full-route fitting and tile retry controls. Round-trip endpoints
+combine into S/E. Reordering clears the road line and hides the map until manual
+recalculation; editing trips invalidates results as before.
+
+Leaflet JS/CSS/license and the shared renderer are copied from the backend source
+into generated Android assets during preBuild. All six map assets were verified
+inside the APK ZIP. HTML/CSS are Android assets. A restricted HTTPS asset origin
+serves only known bundled files; external content is limited to OpenStreetMap
+tiles. JavaScript is used for the bundled map, with no JavaScript/native bridge,
+file access or mixed HTTP map content. Attribution links open the external
+browser. Lifecycle pause/resume/release and nested map gestures are handled.
+Identical payloads avoid resetting the user's map view on recomposition.
+
+Local JDK 17/SDK 35 validation passed assembleDebug, 25 JVM tests, and lintDebug
+with zero lint errors. Five new map tests cover geometry order/bounds, stop order,
+round trips and stale results. The Retrofit transport test now includes geometry.
+An additional Chromium 360×440 check loaded assets extracted directly from the
+APK at the same HTTPS origin as the WebView. Live map tiles returned HTTP 200;
+route lines, accessible markers, escaped popup labels, zoom/fit, redraw and a
+round trip passed without page errors or horizontal overflow. Its route payload
+was a fixture. This browser check does not substitute for an Android emulator or
+physical-device test, neither of which is available in this environment.
+
+No backend deployment or paid map key is needed for this Android map. The existing
+backend already returns route geometry. Google/Waze short-link resolution and
+optional imported names remain web-only in this update.

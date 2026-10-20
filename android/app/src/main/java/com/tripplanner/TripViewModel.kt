@@ -38,7 +38,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
         if (index !in current.order.indices || target !in current.order.indices) return
         val order = current.order.toMutableList()
         java.util.Collections.swap(order, index, target)
-        plan.value = current.copy(order = order, distance = null, manual = true)
+        plan.value = current.copy(order = order, distance = null, manual = true, geometry = null)
     }
 
     fun calculateRoute(manual: Boolean = false) {
@@ -55,7 +55,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
                 val service = routeService()
                 val result = validateRoute(if (manual) service.calculate(request) else service.optimize(request), request, manual)
                 if (generation == routeGeneration && selectedId.value == id && dao.findTrip(id)?.revision == request.revision) {
-                    plan.value = RoutePlan(id, request.revision, requireNotNull(result.orderedStopIds), result.distanceMeters, manual)
+                    plan.value = RoutePlan(id, request.revision, requireNotNull(result.orderedStopIds), result.distanceMeters, manual, validatedGeometry(result.geometry))
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: retrofit2.HttpException) {

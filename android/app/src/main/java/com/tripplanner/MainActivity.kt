@@ -146,6 +146,7 @@ private fun TripApp(model: TripViewModel) {
                                     }
                                     Text("End: ${locations.find { it.id == trip.endId }?.name}")
                                     OutlinedButton(onClick = { model.calculateRoute(true) }, enabled = !routing && !saving) { Text("Calculate this order") }
+                                    if (current.distance != null) RouteMap(trip, locations, current)
                                     Text("Route results are kept while this trip is open. Saved locations stay on this device.", style = MaterialTheme.typography.bodySmall)
                                 }
                             }

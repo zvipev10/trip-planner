@@ -1,0 +1,12 @@
+html, body { height: 100%; margin: 0; font: 14px system-ui; color: #173b32; }
+body { display: flex; flex-direction: column; background: #fff; }
+button { font: inherit; color: #146b58; background: #fff; border: 1px solid #d8dfd4; border-radius: 8px; padding: 10px; }
+.map-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 8px; gap: 8px; }
+#route-map { flex: 1; min-height: 200px; width: 100%; background: #edf1e7; }
+.map-pin { border-radius: 50%; background: #fff; border: 2px solid #146b58; color: #173b32; display: flex; align-items: center; justify-content: center; font: bold 14px/1 system-ui; box-shadow: 0 2px 5px #0004; }
+.map-pin.start { background: #173b32; color: #fff; border-color: #fff; }
+.map-pin.end { background: #e5edbd; }
+.map-legend, #map-status { font-size: 12px; margin: 6px 8px; }
+#map-status:empty { display: none; }
+#reload-map { align-self: start; padding: 4px 8px; margin: 0 8px 6px; }
+.leaflet-popup-content { overflow-wrap: anywhere; }

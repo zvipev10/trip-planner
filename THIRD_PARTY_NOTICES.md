@@ -25,3 +25,7 @@ under BSD-2-Clause; the full license is in `backend/app/web/leaflet-LICENSE.txt`
 Source: https://github.com/Leaflet/Leaflet/tree/v1.9.4 .
 The web map uses HTTPS tiles from OpenStreetMap, with visible map attribution.
 Tile usage policy: https://operations.osmfoundation.org/policies/tiles/ .
+
+The Android build also bundles these Leaflet assets and the same license from the
+web source, using the `syncRouteMapAssets` build task. The embedded Android map
+shows the same OpenStreetMap attribution and uses the same HTTPS tile provider.

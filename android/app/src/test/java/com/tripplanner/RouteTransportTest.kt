@@ -20,9 +20,10 @@ class RouteTransportTest {
             val request = RouteRequest(7, RoutePoint("start", 32.0, 34.0), RoutePoint("end", 31.0, 35.0), emptyList())
             for ((manual, path) in listOf(false to "optimize", true to "calculate")) {
                 val status = if (manual) "manual" else "optimized"
-                server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("""{"revision":7,"orderedStopIds":[],"distanceMeters":123,"legDistancesMeters":[123],"status":"$status"}"""))
+                server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("""{"revision":7,"orderedStopIds":[],"distanceMeters":123,"legDistancesMeters":[123],"status":"$status","geometry":{"type":"LineString","coordinates":[[34.0,32.0],[35.0,31.0]]}}"""))
                 val result = if (manual) api.calculate(request) else api.optimize(request)
                 validateRoute(result, request, manual)
+                assertEquals(listOf(listOf(34.0, 32.0), listOf(35.0, 31.0)), validatedGeometry(result.geometry))
                 val received = requireNotNull(server.takeRequest(5, TimeUnit.SECONDS))
                 assertEquals("/trip-planner/v1/routes/$path", received.path)
                 assertEquals("POST", received.method)

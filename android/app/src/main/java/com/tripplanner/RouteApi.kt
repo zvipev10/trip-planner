@@ -9,8 +9,15 @@ import java.util.concurrent.TimeUnit
 
 data class RoutePoint(val id: String, val latitude: Double, val longitude: Double)
 data class RouteRequest(val revision: Long, val start: RoutePoint, val end: RoutePoint, val stops: List<RoutePoint>)
-data class RouteResult(val revision: Long?, val orderedStopIds: List<String>?, val distanceMeters: Long?, val legDistancesMeters: List<Long>?, val status: String?)
-data class RoutePlan(val tripId: String, val revision: Long, val order: List<String>, val distance: Long?, val manual: Boolean)
+data class RouteGeometry(val type: String?, val coordinates: List<List<Double>>?)
+data class RouteResult(val revision: Long?, val orderedStopIds: List<String>?, val distanceMeters: Long?, val legDistancesMeters: List<Long>?, val status: String?, val geometry: RouteGeometry? = null)
+data class RoutePlan(val tripId: String, val revision: Long, val order: List<String>, val distance: Long?, val manual: Boolean, val geometry: List<List<Double>>? = null)
+
+fun validatedGeometry(geometry: RouteGeometry?): List<List<Double>>? {
+    if (geometry?.type != "LineString") return null
+    val points = geometry.coordinates ?: return null
+    return points.takeIf { it.size in 2..50000 && it.all { p -> p.size == 2 && p[0].isFinite() && p[1].isFinite() && p[0] in -180.0..180.0 && p[1] in -90.0..90.0 } }
+}
 
 fun routeRequest(snapshot: TripSnapshot, manualOrder: List<String>? = null): RouteRequest {
     val trip = snapshot.trip

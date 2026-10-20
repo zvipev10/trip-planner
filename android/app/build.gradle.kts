@@ -11,8 +11,8 @@ android {
         applicationId = "com.tripplanner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
     buildFeatures { compose = true; buildConfig = true }
     buildTypes {
@@ -44,3 +44,13 @@ dependencies {
     implementation("androidx.room:room-ktx:2.7.1")
     ksp("androidx.room:room-compiler:2.7.1")
 }
+
+// Share the pinned map renderer and license with the web app, without a CDN.
+val syncRouteMapAssets by tasks.registering(Copy::class) {
+    from(rootProject.projectDir.parentFile.resolve("backend/app/web")) {
+        include("leaflet.js", "leaflet.css", "leaflet-LICENSE.txt", "route-map.mjs")
+    }
+    into(layout.buildDirectory.dir("generated/mapAssets/map"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/mapAssets"))
+tasks.named("preBuild") { dependsOn(syncRouteMapAssets) }

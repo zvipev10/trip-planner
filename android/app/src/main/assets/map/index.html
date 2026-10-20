@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
+<link rel="stylesheet" href="./leaflet.css"><link rel="stylesheet" href="./map.css"><title>Route map</title></head>
+<body><div class="map-toolbar"><strong>Route map</strong><button id="fit-route">Show full route</button></div>
+<div id="route-map" role="region" aria-label="Interactive street map with route and stops"></div>
+<p class="map-legend">S · Start &nbsp; 1, 2… · Stops &nbsp; E · End</p>
+<p id="map-status" role="status" aria-live="polite"></p><button id="reload-map">Reload map</button>
+<script src="./leaflet.js"></script><script type="module">
+import { mountRouteMap, removeRouteMap } from './route-map.mjs';
+window.showRoute = (trip) => {
+  removeRouteMap(); mountRouteMap(trip);
+  if (!trip.plan.geometry) document.getElementById('map-status').textContent = 'Road line unavailable. Showing stop locations.';
+};
+</script></body></html>
