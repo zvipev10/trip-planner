@@ -1,0 +1,1 @@
+Slice 1: arrival helpers, request and backup validation. Slice 2: error details, map editor, reset and route markers. Slice 3: unit and mobile browser verification, publish draft PR, deploy tested branch and health-check. Rollback by switching VM back to fix/route-diagnostic-logging and restarting.

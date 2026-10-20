@@ -1,3 +1,4 @@
+import { arrivalPoint } from "./core.mjs?v=0.4.2";
 let map = null;
 
 export function removeRouteMap() {
@@ -34,7 +35,8 @@ export function mountRouteMap(trip) {
   ];
   for (const { place, label, role, kind } of stops) {
     if (!place || !Number.isFinite(place.latitude) || !Number.isFinite(place.longitude)) continue;
-    const position = [place.latitude, place.longitude];
+    const target = arrivalPoint(place);
+    const position = [target.latitude, target.longitude];
     bounds.push(position);
     const popup = document.createElement("div");
     popup.dir = "auto";

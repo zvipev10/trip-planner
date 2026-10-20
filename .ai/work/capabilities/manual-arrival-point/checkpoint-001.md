@@ -1,0 +1,6 @@
+Core and UI implemented. 18 JavaScript tests pass. Manual browser verification in progress. Changes limited to web application, tests, and capability artifacts. Existing sanitized server logs remain in place.
+
+Validation: 18 JavaScript logic tests and the mobile browser smoke flow passed (candidate identification, manual editor, preservation, retry failure, round trip, reset, no page errors or width overflow). Screenshot visually checked. Backend regression run pending on VM. Browser smoke uses synthetic HTTP failures to exercise recovery; it does not establish access at any chosen point.
+
+## Recovery-only layout correction
+User feedback: arrival controls must appear only after a routing problem and only for the affected place. Removed the all-places recovery list from normal collection/planning. Added stacked action groups, mixed-direction place headings and mobile spacing. Routino 3.4.4 reports the failed waypoint number; parse it to return only the corresponding location ID. Unknown waypoint output returns no IDs rather than blaming both endpoints. Unit coverage includes waypoint 1, 2 and unknown; browser coverage includes hidden-before-failure and affected-only controls. Existing arrival overrides remain stored even when the panel is hidden. Cache version bumped to 0.4.1.

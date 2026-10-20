@@ -1,5 +1,6 @@
 """Low-memory subprocess adapter for the bundled distance-car Routino profile."""
 import math
+import re
 from pathlib import Path
 import subprocess
 from threading import Lock
@@ -53,7 +54,9 @@ class RoutinoProvider:
             if any(message in result.stderr for message in unreachable):
                 return None
             if "Cannot find node close to specified point" in result.stderr:
-                raise PlanningError("location_not_routable", "A location has no nearby routable road. Confirm its map position.", location_ids=[start.id, end.id])
+                waypoint = re.search(r"Cannot find node close to specified point ([12])\b", result.stderr)
+                ids = [start.id if waypoint[1] == "1" else end.id] if waypoint else []
+                raise PlanningError("location_not_routable", "A location has no nearby routable road. Confirm its map position.", location_ids=ids)
             raise PlanningError("provider_failed", "Routino failed to calculate this route.", 502)
         return self.parse_output(result.stdout)
 

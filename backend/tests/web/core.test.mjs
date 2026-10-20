@@ -173,3 +173,40 @@ test("names are extracted when available, with numbered fallbacks", () => {
   assert.equal(placeName("https://waze.com/ul?ll=32,34", 5), "Place 5");
   assert.equal(placeName("https://google.com/maps?q=Coffee+Shop"), "Coffee Shop");
 });
+
+test("arrival override preserves original destination and applies to both round-trip endpoints", async () => {
+  const {arrivalDistance, failedPlaces} = await import("../../app/web/core.mjs");
+  const t=sample(); t.endId=t.startId;
+  t.places[0].arrival={latitude:32.001,longitude:35.001};
+  const r=requestFor(t);
+  assert.equal(t.places[0].latitude,32);
+  assert.equal(r.start.latitude,32.001);
+  assert.equal(r.end.latitude,32.001);
+  assert.notEqual(r.start.id,r.end.id);
+  assert.ok(arrivalDistance(t.places[0])>100);
+  assert.deepEqual(failedPlaces(t,["start","end","b","missing"]),["a","b"]);
+  const restored=validateSaved(JSON.parse(JSON.stringify([t])))[0];
+  assert.equal(restored.places[0].arrival.latitude,32.001);
+  delete restored.places[0].arrival;
+  assert.equal(requestFor(restored).start.latitude,32);
+});
+
+test("invalid imported arrival coordinates are rejected", () => {
+  const t=sample();t.places[0].arrival={latitude:100,longitude:35};
+  assert.throws(()=>validateSaved([t]),/arrival/);
+  assert.throws(()=>requestFor(t),/arrival/);
+});
+
+test("valid calculated routes and endpoints survive reload and backup validation", () => {
+  for(const manual of [false,true]) {
+    const t=sample();t.endId='a';
+    const request=requestFor(t,manual?['c','b']:null);
+    t.plan=validateReply({revision:t.revision,orderedStopIds:request.stops.map(p=>p.id),distanceMeters:300,legDistancesMeters:[100,100,100],geometry:{coordinates:[[35,32],[35.01,32.01],[35,32]]},status:manual?'manual':'optimized'},request,manual);
+    const restored=validateSaved(JSON.parse(JSON.stringify([t])))[0];
+    assert.equal(restored.startId,'a');assert.equal(restored.endId,'a');
+    assert.equal(restored.plan.distance,300);assert.deepEqual(restored.plan.geometry,t.plan.geometry);
+    assert.equal(restored.plan.manual,manual);
+    restored.revision++;
+    assert.equal(validateSaved([restored])[0].plan,null);
+  }
+});

@@ -1,0 +1,1 @@
+Implementation review: store optional arrival coordinates on each place. Request generation applies overrides to endpoint roles and intermediate stops. Original coordinates remain unchanged. Routino errors identify a pair; UI names candidates without blaming an unverified single point. No dependencies or API schema changes.

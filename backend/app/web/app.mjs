@@ -1,4 +1,4 @@
-import { mountRouteMap, removeRouteMap } from "./route-map.mjs?v=0.3.0";
+import { mountRouteMap, removeRouteMap } from "./route-map.mjs?v=0.4.2";
 import {
   uid,
   newTrip,
@@ -10,7 +10,10 @@ import {
   currentResult,
   move,
   validateSaved,
-} from "./core.mjs?v=0.3.0";
+  arrivalPoint,
+  arrivalDistance,
+  failedPlaces,
+} from "./core.mjs?v=0.4.2";
 const ARROW =
   '<svg class="icon" aria-hidden="true" viewBox="0 0 16 16"><path d="M3 13L13 3M4 3h9v9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
 const KEY = "trip-planner.web.v1",
@@ -92,7 +95,7 @@ function home() {
   return `<section class="intro"><div><span class="eyebrow">MAKE ROOM FOR THE JOURNEY</span><h1>A better order<br>to your day.</h1><p>Gather your places. Find a shorter drive.<br>Keep the freedom to change your mind.</p></div><aside><strong>One trip.<br>Every stop.</strong>Your places stay together, from the first idea to the final route.</aside></section><div class="grid"><section class="panel create-panel"><span class="eyebrow">START SOMETHING</span><h2>Where are you headed?</h2><p>Give your trip a title, then start collecting places.</p><form id="create-form"><label>Trip title<input name="title" required maxlength="120" placeholder="A day around Jerusalem" autocomplete="off"></label><button>Create a trip ↗</button></form></section><section><div class="section-head"><h2>Your trips</h2><span class="count">${trips.length} saved</span></div>${trips.length ? trips.map((t) => `<button class="trip-card" data-trip="${esc(t.id)}"><h3 dir="auto">${esc(t.title)}</h3><small>${t.places.length} locations · ${t.places.filter((p) => !resolved(p)).length} need coordinates</small><span class="arrow" aria-hidden="true">↗</span></button>`).join("") : `<div class="empty"><span class="empty-icon" aria-hidden="true">⌁</span><strong>Your next trip starts here.</strong><br>Create a trip and add the places you want to visit.<br><button class="text-button" data-action="sample">Try a sample Tel Aviv trip ↗</button></div>`}${storageTools()}<p class="footnote">Trips stay in this browser on this device. Export a backup to move them elsewhere. On iPhone, paste shared links into a location’s address field.</p></section></div>`;
 }
 function placeList(t) {
-  return `<div class="editor-layout"><section class="panel"><div class="section-head"><h2>Your places</h2><button data-action="add">+ Add location</button></div>${t.places.length ? t.places.map((p, i) => `<article class="location"><span class="number">${i + 1}</span><div class="place-copy"><h3 dir="auto">${esc(p.name)}</h3><p dir="auto">${esc(p.address || `${p.latitude}, ${p.longitude}`)}</p><span class="badge ${resolved(p) ? "" : "pending"}">${resolved(p) ? "Coordinates confirmed" : "Needs coordinates"}</span>${p.id === t.startId ? '<span class="badge">Start</span>' : ""}${p.id === t.endId ? '<span class="badge">End</span>' : ""}</div><div class="actions"><button class="icon-button" data-edit="${esc(p.id)}" aria-label="Edit ${esc(p.name)}">Edit</button><button class="icon-button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button></div></article>`).join("") : `<div class="empty">A place for every stop.<br>Add your first location to get started.</div>`}</section><aside><div class="tip"><h3>Collect now. Plan later.</h3><p>Paste a Google Maps or Waze link, an address, or coordinates. Places save automatically when you tap Save.</p><p>Map links fill the name and coordinates automatically when available. You can edit them before saving.</p></div><button class="wide" data-view="plan" ${t.places.length ? "" : "disabled"}>Choose start and end →</button><p class="footnote">Up to 20 intermediate stops, with separate start and end points.</p></aside></div>`;
+  return `<div class="editor-layout"><section class="panel"><div class="section-head"><h2>Your places</h2><button data-action="add">+ Add location</button></div>${t.places.length ? t.places.map((p, i) => `<article class="location"><span class="number">${i + 1}</span><div class="place-copy"><h3 dir="auto">${esc(p.name)}</h3><p dir="auto">${esc(p.address || `${p.latitude}, ${p.longitude}`)}</p><span class="badge ${resolved(p) ? "" : "pending"}">${resolved(p) ? "Coordinates confirmed" : "Needs coordinates"}</span>${p.id === t.startId ? '<span class="badge">Start</span>' : ""}${p.id === t.endId ? '<span class="badge">End</span>' : ""}</div><div class="actions"><button class="icon-button" data-edit="${esc(p.id)}" aria-label="Edit ${esc(p.name)}">Edit</button><button class="icon-button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button></div></article>`).join("") : `<div class="empty">A place for every stop.<br>Add your first location to get started.</div>`}</section><aside><div class="tip"><h3>Collect now. Plan later.</h3><p>Paste a Google Maps or Waze link, an address, or coordinates. Places save automatically when you tap Save.</p><p>Map links fill the name and coordinates automatically when available. You can edit them before saving.</p></div><button class="wide" data-view="plan" ${t.places.length ? "" : "disabled"}>${t.startId && t.endId ? "View saved route →" : "Choose start and end →"}</button><p class="footnote">Up to 20 intermediate stops, with separate start and end points.</p></aside></div>`;
 }
 function overview() {
   return `<section class="route-overview" aria-label="Route map"><div class="map-toolbar"><strong>Route map</strong><button type="button" id="fit-route" class="text-button">Show full route</button></div><div id="route-map" role="region" aria-label="Interactive street map with route and stops"></div><p class="map-legend">S · Start &nbsp; 1, 2… · Stops &nbsp; E · End</p><p id="map-status" role="status" aria-live="polite"></p><button type="button" id="reload-map" class="text-button">Reload map</button></section>`;
@@ -116,7 +119,7 @@ function planScreen(t) {
   const options = (chosen) =>
     `<option value="">Choose a location</option>${t.places.map((p) => `<option value="${esc(p.id)}" ${p.id === chosen ? "selected" : ""}>${esc(p.name)}</option>`).join("")}`;
   const unresolved = t.places.filter((p) => !resolved(p)).length;
-  return `<div class="editor-layout plan-layout"><section class="panel"><div class="section-head"><h2>Your route</h2><span class="count">Distance, not duration</span></div>${routeList(t)}</section><aside class="panel"><span class="eyebrow">FIX THE ENDS. ARRANGE THE REST.</span><h2>Start & end</h2><p class="help">Choose different endpoints, or the same place for a round trip.</p><label class="endpoint">Starting point<select id="start-select">${options(t.startId)}</select></label><label class="endpoint">Ending point<select id="end-select">${options(t.endId)}</select></label>${unresolved ? `<p class="field-error">${unresolved} locations need coordinates. <button class="text-button" data-view="places">Edit locations →</button></p>` : ""}<button class="wide" data-action="optimize" ${busy || unresolved || !t.startId || !t.endId ? "disabled" : ""}>${busy ? '<span class="busy"></span>Calculating…' : t.plan ? "Optimize again ↗" : "Optimize route ↗"}</button>${busy ? '<button class="text-button" data-action="cancel">Cancel calculation</button>' : ""}${t.plan?.stale ? '<button class="wide secondary" data-action="calculate" ' + (busy ? "disabled" : "") + ">Calculate my order</button>" : ""}${lastFailure ? '<button class="text-button retry" data-action="retry">Retry last calculation ↗</button>' : ""}<p class="help">Move stops with ↑ and ↓. Recalculate to update distance while keeping your order.</p><p class="footnote">Road data © OpenStreetMap contributors. Routing: Routino. Imported road data may differ from current access conditions.</p></aside></div>`;
+  return `<div class="editor-layout plan-layout"><section class="panel"><div class="section-head"><h2>Your route</h2><span class="count">Distance, not duration</span></div>${routeList(t)}</section><aside class="panel"><span class="eyebrow">FIX THE ENDS. ARRANGE THE REST.</span><h2>Start & end</h2><details class="endpoint-editor" ${t.startId && t.endId ? "" : "open"}><summary>${t.startId && t.endId ? `Saved endpoints · Edit start & end` : "Choose start & end"}</summary><p class="help">Choose different endpoints, or the same place for a round trip.</p><label class="endpoint">Starting point<select id="start-select">${options(t.startId)}</select></label><label class="endpoint">Ending point<select id="end-select">${options(t.endId)}</select></label></details>${t.startId && t.endId ? `<p class="help" dir="auto"><strong>Start:</strong> ${esc(t.places.find(p=>p.id===t.startId)?.name)}<br><strong>End:</strong> ${esc(t.places.find(p=>p.id===t.endId)?.name)}</p>` : ""}${unresolved ? `<p class="field-error">${unresolved} locations need coordinates. <button class="text-button" data-view="places">Edit locations →</button></p>` : ""}<button class="wide" data-action="optimize" ${busy || unresolved || !t.startId || !t.endId ? "disabled" : ""}>${busy ? '<span class="busy"></span>Calculating…' : t.plan ? "Optimize again ↗" : "Optimize route ↗"}</button>${busy ? '<button class="text-button" data-action="cancel">Cancel calculation</button>' : ""}${t.plan?.stale ? '<button class="wide secondary" data-action="calculate" ' + (busy ? "disabled" : "") + ">Calculate my order</button>" : ""}${lastFailure ? '<button class="text-button retry" data-action="retry">Retry last calculation ↗</button>' : ""}<p class="help">Move stops with ↑ and ↓. Recalculate to update distance while keeping your order.</p><p class="footnote">Road data © OpenStreetMap contributors. Routing: Routino. Imported road data may differ from current access conditions.</p></aside></div>`;
 }
 function render() {
   removeRouteMap();
@@ -127,6 +130,13 @@ function render() {
       : home()
   ).replaceAll("↗", ARROW);
   if (!t) selected = null;
+  if (t && view === "plan" && lastFailure?.code === "location_not_routable") {
+    const ids = lastFailure.placeIds || [];
+    const affected = t.places.filter(p => ids.includes(p.id));
+    app.insertAdjacentHTML("beforeend", `<section class="panel arrival-recovery" aria-label="Arrival points"><div class="arrival-recovery-heading"><span class="eyebrow">LOCATION NEEDS ATTENTION</span><h2>Choose a reachable arrival point</h2><p role="alert">${affected.length ? "We couldn’t find a nearby driving road for the location below." : "We couldn’t identify the affected location. Retry the calculation or check your saved locations."}</p></div>${affected.map(p => `<article class="arrival-recovery-place"><h3 dir="auto">${esc(p.name)}</h3><p class="help">Your original destination stays saved. Choose a suitable entrance or parking area; access is unverified.</p>${p.arrival ? `<p class="arrival-adjustment">Arrival point adjusted · ${arrivalDistance(p)} m from destination</p>` : ""}<div class="arrival-recovery-actions"><button type="button" data-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Choose arrival point</button><button type="button" class="secondary" data-edit="${esc(p.id)}">Edit location</button>${p.arrival ? `<button type="button" class="text-button" data-reset-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Reset to original location</button>` : ""}</div></article>`).join("")}</section>`);
+  }
+  const recovery = app.querySelector(".arrival-recovery");
+  if (recovery) app.querySelector(".plan-layout")?.before(recovery);
   bindForms();
   if (t && view === "plan") mountRouteMap(t);
 }
@@ -200,6 +210,7 @@ async function calculate(manual = false) {
       signal: controller.signal,
     });
     if (!response.ok) {
+      const details = await response.json().catch(() => ({}));
       const message =
         {
           422: "Some locations cannot form a car route. Confirm their positions.",
@@ -208,7 +219,10 @@ async function calculate(manual = false) {
           504: "The calculation timed out. Try fewer stops.",
         }[response.status] ||
         `The server could not calculate this route (HTTP ${response.status}).`;
-      throw Error(message);
+      const error = Error(message);
+      error.code = details.error?.code;
+      error.placeIds = failedPlaces(snapshot, details.error?.locationIds);
+      throw error;
     }
     const result = validateReply(await response.json(), request, manual);
     if (
@@ -225,7 +239,7 @@ async function calculate(manual = false) {
     notice("Your route is ready.");
   } catch (error) {
     if (busy?.token !== token) return;
-    lastFailure = { manual };
+    lastFailure = { manual, code: error.code, placeIds: error.placeIds };
     notice(
       controller.signal.aborted
         ? controller.signal.reason === "timeout"
@@ -274,7 +288,7 @@ async function importBackup(e) {
     }
     selected = null;
     render();
-    notice("Backup imported. Recalculate any routes.");
+    notice("Backup imported. Saved routes restored when valid.");
   } catch (error) {
     notice(error.message || "Could not import this backup.", true);
   }
@@ -285,7 +299,7 @@ app.addEventListener("click", (e) => {
   try {
     if (button.dataset.trip) {
       selected = button.dataset.trip;
-      view = "places";
+      view = active()?.startId && active()?.endId ? "plan" : "places";
       lastFailure = null;
       render();
       return;
@@ -430,7 +444,11 @@ form.addEventListener("submit", async (e) => {
     mutate((t) => {
       const index = t.places.findIndex((p) => p.id === place.id);
       if (index < 0) t.places.push(place);
-      else t.places[index] = place;
+      else {
+        const previous = t.places[index];
+        if (previous.latitude === place.latitude && previous.longitude === place.longitude && previous.arrival) place.arrival = previous.arrival;
+        t.places[index] = place;
+      }
     });
     dialog.close();
   } catch (error) {
@@ -532,3 +550,51 @@ window.addEventListener("storage", (e) => {
   }
 });
 render();
+
+function openArrival(id) {
+  const trip = active(), place = trip?.places.find(p => p.id === id);
+  if (!place || !resolved(place)) return notice("Confirm destination coordinates first.", true);
+  const tripId = trip.id, target = arrivalPoint(place);
+  const modal = document.createElement("dialog");
+  modal.innerHTML = `<form><h2>Choose arrival point</h2><p>${esc(place.name)} — original destination stays saved.</p><p>Tap the map or drag the arrival pin. Access is unverified; choose a usable entrance or parking area.</p><div id="arrival-map" style="height:300px"></div><p id="arrival-map-status" role="status"></p><label>Arrival latitude<input name="lat" type="number" step="any" min="-90" max="90" required value="${target.latitude}"></label><label>Arrival longitude<input name="lon" type="number" step="any" min="-180" max="180" required value="${target.longitude}"></label><p id="arrival-distance" aria-live="polite"></p><p id="arrival-error" role="alert"></p><button type="button" id="arrival-cancel">Cancel</button><button type="submit">Use this arrival point</button></form>`;
+  document.body.append(modal);
+  modal.showModal();
+  let arrivalMap = null, marker = null;
+  const fields = modal.querySelector("form").elements;
+  const read = () => ({latitude: Number(fields.lat.value), longitude: Number(fields.lon.value)});
+  const update = () => {
+    const point = read();
+    modal.querySelector("#arrival-distance").textContent = fields.lat.value && fields.lon.value && resolved(point) ? `${arrivalDistance({...place, arrival:point})} m from original destination` : "Enter valid coordinates.";
+    if (resolved(point)) marker?.setLatLng([point.latitude, point.longitude]);
+  };
+  modal.querySelector("#arrival-cancel").onclick = () => modal.close();
+  modal.addEventListener("close", () => { arrivalMap?.remove(); modal.remove(); }, {once:true});
+  if (globalThis.L) {
+    const L = globalThis.L;
+    arrivalMap = L.map(modal.querySelector("#arrival-map")).setView([target.latitude,target.longitude],16);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(arrivalMap).on("tileerror", () => {modal.querySelector("#arrival-map-status").textContent="Map tiles unavailable. You can enter arrival coordinates below.";});
+    L.circleMarker([place.latitude,place.longitude],{color:"#a43",radius:8}).addTo(arrivalMap).bindTooltip("Original destination");
+    marker = L.marker([target.latitude,target.longitude],{draggable:true,title:"Arrival point"}).addTo(arrivalMap);
+    const choose = latlng => {fields.lat.value=latlng.lat.toFixed(6);fields.lon.value=latlng.lng.toFixed(6);update();};
+    arrivalMap.on("click",e=>choose(e.latlng));
+    marker.on("dragend",()=>choose(marker.getLatLng()));
+  } else modal.querySelector("#arrival-map-status").textContent="Map unavailable. Enter arrival coordinates below.";
+  fields.lat.oninput = fields.lon.oninput = update;
+  update();
+  modal.querySelector("form").onsubmit = e => {
+    e.preventDefault();
+    try {
+      if (selected !== tripId) throw Error("The active trip changed. Reopen the arrival editor.");
+      const point = read();
+      if (!fields.lat.value || !fields.lon.value || !resolved(point)) throw Error("Enter valid arrival coordinates.");
+      mutate(t => {t.places.find(p=>p.id===id).arrival=point;});
+      modal.close();
+      calculate(false);
+    } catch(error) {modal.querySelector("#arrival-error").textContent=error.message;}
+  };
+}
+app.addEventListener("click",e=>{
+  const choose=e.target.closest("[data-arrival]"), reset=e.target.closest("[data-reset-arrival]");
+  if (choose) openArrival(choose.dataset.arrival);
+  if (reset) mutate(t=>{delete t.places.find(p=>p.id===reset.dataset.resetArrival).arrival;});
+});
