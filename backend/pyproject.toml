@@ -19,4 +19,4 @@ pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.setuptools.package-data]
-app = ["web/*.html", "web/*.css", "web/*.mjs"]
+app = ["web/*.html", "web/*.css", "web/*.mjs", "web/*.js", "web/*.txt"]

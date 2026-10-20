@@ -8,7 +8,7 @@ def test_web_is_served_without_routing_configuration():
         assert page.status_code == 200
         assert 'Trip Planner' in page.text
         assert './app.mjs' in page.text
-        for asset in ('app.mjs', 'core.mjs', 'style.css'):
+        for asset in ('app.mjs', 'core.mjs', 'style.css', 'route-map.mjs', 'leaflet.js', 'leaflet.css', 'leaflet-LICENSE.txt'):
             assert client.get('/web/' + asset).status_code == 200
 
 

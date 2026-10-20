@@ -87,3 +87,27 @@ JSON and viewport-only responses. Backend suite: 62 passed; web suite: 16 passed
 This is a backend-only fix and needs the VM service updated/restarted. Google's
 unofficial embed format may change; unsupported responses fail explicitly rather
 than guessing coordinates. No Google API key or new paid service was introduced.
+
+## Interactive street map — 2026-10-20
+
+Replaced the SVG geometry sketch with bundled Leaflet 1.9.4 and HTTPS
+OpenStreetMap tiles. The map overlays the returned road geometry, numbered
+intermediate stops, start/end markers (combined for a round trip), safe text
+popups, zoom/pan, full-route fitting and a tile reload control. Tile failures
+show a connection message. A stale route remains hidden until recalculation.
+Leaflet maps are disposed before replacing the rendered screen.
+
+Validation: the 62-test backend suite and 16-test Node suite passed. Static asset
+checks also cover the JS, CSS and license shipped in the Python package.
+Chromium mobile viewport 390×844 loaded actual OpenStreetMap tiles (HTTP 200),
+displayed the route overlay and four markers, opened a stop popup, zoomed and
+fitted the route, switched between screens without map lifecycle errors, hid a
+stale map after reordering, and restored it after manual recalculation. No page
+errors or horizontal overflow were observed. API route responses in this browser
+check were fixtures; map tiles were live. No physical iPhone run was performed.
+
+The VM must pull the update, reinstall the package and restart the service.
+Versioned application/CSS URLs ensure the updated frontend is requested on
+refresh. No map API key, tile proxy or extra VM service is required. Standard
+OpenStreetMap tile usage/attribution policy applies; no offline tile download is
+implemented. Leaflet licensing is included in the distribution and notices.

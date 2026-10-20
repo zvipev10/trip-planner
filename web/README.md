@@ -40,10 +40,13 @@ and interpreter before replacing anything.
 5. Optimize the stop order and inspect approximate driving distance.
 6. Move intermediate stops using the up/down buttons, then calculate your order.
 
-The overview draws actual returned road geometry; it is not a geographic base map
-or navigation service. Endpoints stay fixed. Moving a stop hides the old distance
-until recalculation. Failed requests preserve locations and manual ordering, with
-retry and cancel controls. Edits invalidate in-flight results.
+The interactive map uses bundled Leaflet 1.9.4 and HTTPS OpenStreetMap tiles,
+with actual returned road geometry and labeled start/intermediate/end markers.
+Users can pan, zoom, open stop labels, and fit the full route. Changing stop order
+hides the old map until recalculation. A tile failure shows a retry message while
+the route overlay and stop list remain available. No paid map API key is needed;
+tiles require an internet connection. Attribution remains visible on the map.
+The added JS/CSS/license assets are included in the backend Python package.
 
 Trips save in localStorage per browser and origin, not on the server. Export JSON
 backups to move or recover data. Import explicitly replaces this browser's trips

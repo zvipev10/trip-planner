@@ -1,3 +1,4 @@
+import { mountRouteMap, removeRouteMap } from "./route-map.mjs?v=0.3.0";
 import {
   uid,
   newTrip,
@@ -9,7 +10,7 @@ import {
   currentResult,
   move,
   validateSaved,
-} from "./core.mjs?v=0.2.1";
+} from "./core.mjs?v=0.3.0";
 const ARROW =
   '<svg class="icon" aria-hidden="true" viewBox="0 0 16 16"><path d="M3 13L13 3M4 3h9v9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
 const KEY = "trip-planner.web.v1",
@@ -93,35 +94,8 @@ function home() {
 function placeList(t) {
   return `<div class="editor-layout"><section class="panel"><div class="section-head"><h2>Your places</h2><button data-action="add">+ Add location</button></div>${t.places.length ? t.places.map((p, i) => `<article class="location"><span class="number">${i + 1}</span><div class="place-copy"><h3 dir="auto">${esc(p.name)}</h3><p dir="auto">${esc(p.address || `${p.latitude}, ${p.longitude}`)}</p><span class="badge ${resolved(p) ? "" : "pending"}">${resolved(p) ? "Coordinates confirmed" : "Needs coordinates"}</span>${p.id === t.startId ? '<span class="badge">Start</span>' : ""}${p.id === t.endId ? '<span class="badge">End</span>' : ""}</div><div class="actions"><button class="icon-button" data-edit="${esc(p.id)}" aria-label="Edit ${esc(p.name)}">Edit</button><button class="icon-button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button></div></article>`).join("") : `<div class="empty">A place for every stop.<br>Add your first location to get started.</div>`}</section><aside><div class="tip"><h3>Collect now. Plan later.</h3><p>Paste a Google Maps or Waze link, an address, or coordinates. Places save automatically when you tap Save.</p><p>Map links fill the name and coordinates automatically when available. You can edit them before saving.</p></div><button class="wide" data-view="plan" ${t.places.length ? "" : "disabled"}>Choose start and end →</button><p class="footnote">Up to 20 intermediate stops, with separate start and end points.</p></aside></div>`;
 }
-function overview(plan) {
-  const points = plan?.geometry;
-  if (!Array.isArray(points) || points.length < 2) return "";
-  const xs = points.map((p) => p[0]),
-    ys = points.map((p) => p[1]),
-    minx = Math.min(...xs),
-    maxx = Math.max(...xs),
-    miny = Math.min(...ys),
-    maxy = Math.max(...ys),
-    sx = maxx - minx || 0.001,
-    sy = maxy - miny || 0.001;
-  const map = (p) => [
-    12 + ((p[0] - minx) / sx) * 276,
-    128 - ((p[1] - miny) / sy) * 116,
-  ];
-  const step = Math.max(1, Math.ceil(points.length / 3000)),
-    sample = points.filter((_, i) => i % step === 0);
-  sample.push(points.at(-1));
-  const path = sample
-      .map(
-        (p, i) =>
-          `${i ? "L" : "M"}${map(p)
-            .map((n) => n.toFixed(2))
-            .join(",")}`,
-      )
-      .join(" "),
-    first = map(points[0]),
-    last = map(points.at(-1));
-  return `<div class="route-overview"><span class="eyebrow">ROAD GEOMETRY · NOT A BASE MAP</span><svg viewBox="0 0 300 140" role="img" aria-label="Overview of the calculated road route"><path d="${path}" fill="none" stroke="#3d7b5e" stroke-width="2.5" stroke-linecap="round"/><circle cx="${first[0]}" cy="${first[1]}" r="5" fill="#173b32"/><circle cx="${last[0]}" cy="${last[1]}" r="5" fill="#b0ba72" stroke="#173b32"/></svg></div>`;
+function overview() {
+  return `<section class="route-overview" aria-label="Route map"><div class="map-toolbar"><strong>Route map</strong><button type="button" id="fit-route" class="text-button">Show full route</button></div><div id="route-map" role="region" aria-label="Interactive street map with route and stops"></div><p class="map-legend">S · Start &nbsp; 1, 2… · Stops &nbsp; E · End</p><p id="map-status" role="status" aria-live="polite"></p><button type="button" id="reload-map" class="text-button">Reload map</button></section>`;
 }
 function routeList(t) {
   const p = t.plan;
@@ -145,6 +119,7 @@ function planScreen(t) {
   return `<div class="editor-layout plan-layout"><section class="panel"><div class="section-head"><h2>Your route</h2><span class="count">Distance, not duration</span></div>${routeList(t)}</section><aside class="panel"><span class="eyebrow">FIX THE ENDS. ARRANGE THE REST.</span><h2>Start & end</h2><p class="help">Choose different endpoints, or the same place for a round trip.</p><label class="endpoint">Starting point<select id="start-select">${options(t.startId)}</select></label><label class="endpoint">Ending point<select id="end-select">${options(t.endId)}</select></label>${unresolved ? `<p class="field-error">${unresolved} locations need coordinates. <button class="text-button" data-view="places">Edit locations →</button></p>` : ""}<button class="wide" data-action="optimize" ${busy || unresolved || !t.startId || !t.endId ? "disabled" : ""}>${busy ? '<span class="busy"></span>Calculating…' : t.plan ? "Optimize again ↗" : "Optimize route ↗"}</button>${busy ? '<button class="text-button" data-action="cancel">Cancel calculation</button>' : ""}${t.plan?.stale ? '<button class="wide secondary" data-action="calculate" ' + (busy ? "disabled" : "") + ">Calculate my order</button>" : ""}${lastFailure ? '<button class="text-button retry" data-action="retry">Retry last calculation ↗</button>' : ""}<p class="help">Move stops with ↑ and ↓. Recalculate to update distance while keeping your order.</p><p class="footnote">Road data © OpenStreetMap contributors. Routing: Routino. Imported road data may differ from current access conditions.</p></aside></div>`;
 }
 function render() {
+  removeRouteMap();
   const t = active();
   app.innerHTML = (
     t
@@ -153,6 +128,7 @@ function render() {
   ).replaceAll("↗", ARROW);
   if (!t) selected = null;
   bindForms();
+  if (t && view === "plan") mountRouteMap(t);
 }
 function bindForms() {
   document.querySelector("#create-form")?.addEventListener("submit", (e) => {

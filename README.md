@@ -161,7 +161,8 @@ The buildless web app is served by FastAPI at `/web/` and calls the same-origin
 HTTP API. On the existing VM proxy, its URL after deployment is
 `http://151.145.93.180/trip-planner/web/`. It supports titled trips, local storage,
 pasted locations, endpoints, optimized order/distance, manual reordering with
-recalculation, backups and road-geometry overview. See [deployment instructions](web/README.md).
+recalculation, backups and an interactive OpenStreetMap street map with the
+route, labeled stops, zoom/pan, popups and a full-route view. See [deployment instructions](web/README.md).
 No signing, paid browser SDK, or frontend Node server is needed. Names are optional;
 map-link paste extracts destination coordinates and a name automatically when
 available, otherwise assigns a numbered name. Short links are resolved through
