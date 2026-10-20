@@ -98,9 +98,13 @@ def google_embed_url(url):
     parsed = urlsplit(url)
     query = parse_qs(parsed.query)
     ftid = query.get("ftid", [""])[0]
+    if not ftid:
+        path_id = re.search(r"!1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)(?:!|$|/)", unquote(parsed.path))
+        if path_id:
+            ftid = path_id[1]
     if parsed.hostname not in {"google.com", "www.google.com", "maps.google.com", "google.co.il", "www.google.co.il", "maps.google.co.il"} or not re.fullmatch(r"0x[0-9a-fA-F]+:0x[0-9a-fA-F]+", ftid):
         return url, None
-    return "https://www.google.com/maps?" + urlencode({"q": query.get("q", [ftid])[0], "ftid": ftid, "output": "embed", "hl": "en"}), ftid
+    return "https://www.google.com/maps?" + urlencode({"q": query.get("q", [parse_place(url).get("name") or ftid])[0], "ftid": ftid, "output": "embed", "hl": "en"}), ftid
 
 
 def embedded_google_place(page, expected_ftid):

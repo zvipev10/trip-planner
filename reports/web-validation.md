@@ -111,3 +111,19 @@ Versioned application/CSS URLs ensure the updated frontend is requested on
 refresh. No map API key, tile proxy or extra VM service is required. Standard
 OpenStreetMap tile usage/attribution policy applies; no offline tile download is
 implemented. Leaflet licensing is included in the distribution and notices.
+
+
+## Android-style Google share URL path IDs
+
+The live resolver rejected `https://maps.app.goo.gl/ckFFYsB7ADuppy5d9?g_st=ac`.
+Unlike the previously supported query-string `ftid`, this Google short link
+redirects to `/maps/place/.../data=!4m2!3m1!1s0x...:0x...`. The resolver now reads
+that feature ID (including percent-encoded forms) and requests the same exact
+embedded destination. Existing host allowlisting, ID matching and bounded reads
+remain unchanged. No Android APK or web client update is required.
+
+Live verification of the updated local resolver returned `עין שוקו`, latitude
+`32.7389393`, longitude `35.6507361` for the exact supplied link. The deployed VM
+returned HTTP 422 before the fix and still requires a pull/service restart.
+Three regression cases cover path-ID normalization and the short-link response
+chain. Backend suite: 65 passed.

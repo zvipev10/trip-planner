@@ -139,3 +139,37 @@ def test_real_embed_response_shape():
     # Reproduces the destination container from the live Google embed response.
     page = 'initEmbed([null,null,[[[3380.10250890583,34.8482224,32.0935124],[0,0,0],null,13.1],null,null,[["' + USER_FTID + '","קרית אריה, Ef\'al St 7, Petah Tikva, Israel",[32.0935124,34.8482224],"16141274615386790419"],"קרית אריה",["Ef\'al St 7","Petah Tikva","Israel"]]]]);'
     assert embedded_google_place(page, USER_FTID)['name'] == 'קרית אריה'
+
+
+ANDROID_SHARE_FTID = '0x151c14823463a7d9:0xa0ccbe2b317840e2'
+ANDROID_SHARE_PATH = 'https://www.google.com/maps/place/%D7%A2%D7%99%D7%9F+%D7%A9%D7%95%D7%A7%D7%95/data=!4m2!3m1!1s' + ANDROID_SHARE_FTID + '!18m1!1e1?entry=gps'
+
+
+@pytest.mark.parametrize('url', [ANDROID_SHARE_PATH, ANDROID_SHARE_PATH.replace('!1s', '%211s').replace(':0x', '%3A0x')])
+def test_google_feature_id_in_android_share_path(url):
+    from app.places import google_embed_url
+    result, ftid = google_embed_url(url)
+    query = httpx.URL(result).params
+    assert ftid == ANDROID_SHARE_FTID
+    assert query['ftid'] == ftid
+    assert query['q'] == 'עין שוקו'
+    assert query['output'] == 'embed'
+
+
+def test_android_short_link_path_id_round_trip():
+    import json
+    calls = []
+    def handler(request):
+        calls.append(request.url)
+        if request.url.host == 'maps.app.goo.gl':
+            return httpx.Response(302, headers={'location': ANDROID_SHARE_PATH})
+        assert request.url.host == 'www.google.com'
+        assert request.url.params['ftid'] == ANDROID_SHARE_FTID
+        assert request.url.params['output'] == 'embed'
+        payload = [[ANDROID_SHARE_FTID, 'עין שוקו', [32.7389393, 35.6507361]], 'עין שוקו']
+        return httpx.Response(200, text='initEmbed(' + json.dumps(payload) + ');')
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await resolve_place('https://maps.app.goo.gl/ckFFYsB7ADuppy5d9?g_st=ac', client)
+    assert asyncio.run(run()) == {'name': 'עין שוקו', 'latitude': 32.7389393, 'longitude': 35.6507361}
+    assert len(calls) == 2
