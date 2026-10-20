@@ -16,10 +16,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 class MainActivity : ComponentActivity() {
@@ -29,7 +32,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) receiveShare(intent)
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF146B58), secondary = Color(0xFF42675D))) {
+            TripTheme {
                 TripApp(model)
             }
         }
@@ -72,7 +75,16 @@ private fun TripApp(model: TripViewModel) {
     }
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(if (selectedId == null) "Your trips" else trip?.title ?: "Loading trip…") },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BrandMark()
+                    Column {
+                        Text("Trip Planner", style = MaterialTheme.typography.titleMedium)
+                        Text("LESS DISTANCE. MORE DISCOVERY.", style = MaterialTheme.typography.labelSmall, fontSize = 8.sp)
+                    }
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = WebPaper),
             navigationIcon = {
                 if (selectedId != null) TextButton(onClick = { if (screen == "endpoints") model.showLocations() else model.select(null) }) { Text("Back") }
             },
@@ -96,8 +108,16 @@ private fun TripApp(model: TripViewModel) {
                 }
             }
             if (selectedId == null) {
-                Text("Collect places, then plan the shortest driving route.", style = MaterialTheme.typography.bodyLarge)
-                Button(onClick = { creating = true }, enabled = !saving) { Text("Create trip") }
+                Card(colors = CardDefaults.cardColors(containerColor = WebInk), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("MAKE ROOM FOR THE JOURNEY", color = WebLime, style = MaterialTheme.typography.labelSmall)
+                        Text("A better order\nto your day.", color = Color.White, style = MaterialTheme.typography.headlineLarge)
+                        Text("Gather your places. Find a shorter drive.", color = WebLime)
+                        Button(onClick = { creating = true }, enabled = !saving,
+                            colors = ButtonDefaults.buttonColors(containerColor = WebLime, contentColor = WebInk)) { Text("Create a trip ↗") }
+                    }
+                }
+                Text("Your trips", style = MaterialTheme.typography.titleLarge)
                 if (trips.isEmpty()) Text("Your saved trips will appear here.")
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(trips, key = { it.trip.id }) { item ->
@@ -110,6 +130,11 @@ private fun TripApp(model: TripViewModel) {
                     }
                 }
             } else if (trip != null) {
+                Text(trip.title, style = MaterialTheme.typography.headlineLarge, maxLines = 2)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = screen != "endpoints", onClick = model::showLocations, label = { Text("1 · Collect places") })
+                    FilterChip(selected = screen == "endpoints", onClick = model::showEndpoints, label = { Text("2 · Plan route") })
+                }
                 if (screen == "endpoints") {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("2 · Start and end", style = MaterialTheme.typography.headlineSmall)
@@ -134,17 +159,23 @@ private fun TripApp(model: TripViewModel) {
                                 }
                                 val current = routePlan?.takeIf { it.tripId == trip.id && it.revision == trip.revision }
                                 if (current != null) {
-                                    Text(current.distance?.let { String.format(java.util.Locale.getDefault(), "Driving distance: %.2f km", it / 1000.0) } ?: "Order changed. Recalculate the distance.")
+                                    Card(colors = CardDefaults.cardColors(containerColor = WebInk), modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text(if (current.distance == null) "ORDER CHANGED" else if (current.manual) "YOUR CHOSEN ORDER" else "OPTIMIZED ROUTE", color = WebLime, style = MaterialTheme.typography.labelSmall)
+                                            Text(current.distance?.let { String.format(java.util.Locale.getDefault(), "%.2f km", it / 1000.0) } ?: "Recalculate distance", color = Color.White, style = MaterialTheme.typography.headlineLarge)
+                                            Text(if (current.distance == null) "The previous distance no longer applies." else "Approximate road distance.", color = WebLime)
+                                        }
+                                    }
                                     Text(if (current.manual) "Manual order" else "Optimized order", fontWeight = FontWeight.Bold)
-                                    Text("Start: ${locations.find { it.id == trip.startId }?.name}")
+                                    RouteStop("START", locations.find { it.id == trip.startId }?.name.orEmpty(), "S")
                                     current.order.forEachIndexed { index, id ->
-                                        Text("${index + 1}. ${locations.find { it.id == id }?.name ?: id}")
+                                        RouteStop("STOP ${index + 1}", locations.find { it.id == id }?.name ?: id, "${index + 1}")
                                         Row {
                                             TextButton(onClick = { model.moveStop(index, -1) }, enabled = index > 0 && !routing && !saving) { Text("Move up") }
                                             TextButton(onClick = { model.moveStop(index, 1) }, enabled = index < current.order.lastIndex && !routing && !saving) { Text("Move down") }
                                         }
                                     }
-                                    Text("End: ${locations.find { it.id == trip.endId }?.name}")
+                                    RouteStop("END", locations.find { it.id == trip.endId }?.name.orEmpty(), "E")
                                     OutlinedButton(onClick = { model.calculateRoute(true) }, enabled = !routing && !saving) { Text("Calculate this order") }
                                     if (current.distance != null) RouteMap(trip, locations, current)
                                     Text("Route results are kept while this trip is open. Saved locations stay on this device.", style = MaterialTheme.typography.bodySmall)
@@ -189,6 +220,7 @@ private fun TripApp(model: TripViewModel) {
     if (trip != null && (adding || editing != null || importing)) {
         LocationEditor(
             existing = editing,
+            fallbackNumber = locations.size + 1,
             shared = if (importing) shared else null,
             saving = saving,
             saveError = error,
@@ -213,6 +245,19 @@ private fun TripApp(model: TripViewModel) {
 }
 
 @Composable
+private fun RouteStop(label: String, name: String, marker: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
+            Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { Text(marker, fontWeight = FontWeight.Bold) }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(name, style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+@Composable
 private fun EndpointCard(label: String, place: TripLocation?, choose: () -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
@@ -223,38 +268,55 @@ private fun EndpointCard(label: String, place: TripLocation?, choose: () -> Unit
     }
 }
 
+private val draftSaver = listSaver<PlaceDraft, Any>(
+    save = { listOf(it.name, it.address, it.latitude, it.longitude, it.autoName) },
+    restore = { PlaceDraft(it[0] as String, it[1] as String, it[2] as String, it[3] as String, it[4] as Boolean) },
+)
+
 @Composable
-private fun LocationEditor(existing: TripLocation?, shared: String?, saving: Boolean, saveError: String?, close: () -> Unit, save: (String, String, Double?, Double?) -> Unit, remove: (() -> Unit)?) {
-    val initial = remember(shared) { sharedCoordinates(shared) }
-    var name by rememberSaveable(existing?.id, shared) { mutableStateOf(existing?.name ?: "") }
-    var address by rememberSaveable(existing?.id, shared) { mutableStateOf(existing?.address ?: shared ?: "") }
-    var latitude by rememberSaveable(existing?.id, shared) { mutableStateOf((existing?.latitude ?: initial?.first)?.toString() ?: "") }
-    var longitude by rememberSaveable(existing?.id, shared) { mutableStateOf((existing?.longitude ?: initial?.second)?.toString() ?: "") }
-    var error by remember { mutableStateOf<String?>(null) }
-    AlertDialog(onDismissRequest = close, title = { Text(if (existing == null) "Add location" else "Edit location") }, text = {
+private fun LocationEditor(existing: TripLocation?, fallbackNumber: Int, shared: String?, saving: Boolean, saveError: String?, close: () -> Unit, save: (String, String, Double?, Double?) -> Unit, remove: (() -> Unit)?) {
+    val scope = rememberCoroutineScope()
+    val fallback = "Place $fallbackNumber"
+    val initialCoordinates = sharedCoordinates(shared)
+    var savedDraft by rememberSaveable(existing?.id, shared, stateSaver = draftSaver) {
+        mutableStateOf(PlaceDraft(
+            existing?.name ?: sharedPlaceName(shared.orEmpty()) ?: fallback,
+            existing?.address ?: shared.orEmpty(),
+            (existing?.latitude ?: initialCoordinates?.first)?.toString().orEmpty(),
+            (existing?.longitude ?: initialCoordinates?.second)?.toString().orEmpty(),
+            autoName = existing?.name.isNullOrBlank(),
+        ))
+    }
+    val importer = remember(existing?.id, shared) {
+        PlaceImport(scope, fallback, savedDraft, { text -> routeService().resolvePlace(PlaceResolveRequest(text)) })
+    }
+    val draft by importer.state.collectAsStateWithLifecycle()
+    SideEffect { savedDraft = draft.copy(busy = false, saving = false, error = null) }
+    LaunchedEffect(importer) {
+        if (draft.latitude.isBlank() && draft.longitude.isBlank() && draft.address.isNotBlank()) importer.retry()
+    }
+    DisposableEffect(importer) { onDispose { importer.cancel() } }
+    val working = saving || draft.saving
+    val dismiss = { importer.cancel(); close() }
+    AlertDialog(onDismissRequest = dismiss, title = { Text(if (existing == null) "Add location" else "Edit location") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(name, { name = it.take(200) }, label = { Text("Place name") }, singleLine = true)
-            OutlinedTextField(address, { address = it.take(16000) }, label = { Text("Address or shared link") }, minLines = 2, maxLines = 4)
-            Text("Coordinates are optional while collecting places. Addresses and short links will need resolution before routing.", style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(latitude, { latitude = it }, label = { Text("Latitude") }, singleLine = true)
-            OutlinedTextField(longitude, { longitude = it }, label = { Text("Longitude") }, singleLine = true)
-            if (initial != null) Text("Coordinates extracted from shared text. Please confirm the destination.")
-            if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+            OutlinedTextField(draft.name, importer::name, enabled = !working, label = { Text("Place name (optional)") }, singleLine = true)
+            OutlinedTextField(draft.address, importer::address, enabled = !working, label = { Text("Address or shared link") }, minLines = 2, maxLines = 4)
+            Text("Paste a Google Maps or Waze destination link. Its name and coordinates fill automatically when available.", style = MaterialTheme.typography.bodySmall)
+            if (draft.busy) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text("Reading map link…")
+            }
+            OutlinedTextField(draft.latitude, importer::latitude, enabled = !working, label = { Text("Latitude") }, singleLine = true)
+            OutlinedTextField(draft.longitude, importer::longitude, enabled = !working, label = { Text("Longitude") }, singleLine = true)
+            TextButton(onClick = importer::retry, enabled = !working && draft.address.isNotBlank()) { Text("Retry link extraction") }
+            if (draft.error != null) Text(draft.error!!, color = MaterialTheme.colorScheme.error)
             if (saveError != null) Text(saveError, color = MaterialTheme.colorScheme.error)
-            if (remove != null) TextButton(onClick = remove, enabled = !saving) { Text("Remove from trip") }
+            if (remove != null) TextButton(onClick = remove, enabled = !working) { Text("Remove from trip") }
         }
     }, confirmButton = {
-        TextButton(enabled = !saving, onClick = {
-            val lat = latitude.toDoubleOrNull()
-            val lon = longitude.toDoubleOrNull()
-            val coordinatesEntered = latitude.isNotBlank() || longitude.isNotBlank()
-            error = when {
-                name.isBlank() -> "Enter a place name."
-                coordinatesEntered && (lat == null || lon == null || !lat.isFinite() || !lon.isFinite() || lat !in -90.0..90.0 || lon !in -180.0..180.0) -> "Enter valid latitude and longitude."
-                !coordinatesEntered && address.isBlank() -> "Enter an address, link, or coordinates."
-                else -> null
-            }
-            if (error == null) save(name, address, lat, lon)
-        }) { Text("Save") }
-    }, dismissButton = { TextButton(onClick = close) { Text("Cancel") } })
+        TextButton(enabled = !working, onClick = {
+            importer.save { value -> save(value.name, value.address, value.latitude.toDoubleOrNull(), value.longitude.toDoubleOrNull()) }
+        }) { Text(if (draft.saving) "Reading link…" else "Save") }
+    }, dismissButton = { TextButton(onClick = dismiss, enabled = !saving) { Text("Cancel") } })
 }

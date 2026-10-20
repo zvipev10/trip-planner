@@ -34,4 +34,22 @@ class RouteTransportTest {
             }
         } finally { server.shutdown() }
     }
+    @Test fun resolvesGoogleShortLinkThroughProxyPrefix() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val api = Retrofit.Builder().baseUrl(server.url("/trip-planner/"))
+                .addConverterFactory(GsonConverterFactory.create()).build().create(RouteService::class.java)
+            val link = "https://maps.app.goo.gl/SZuQY5qwP4PJ8woF8?g_st=ic"
+            server.enqueue(MockResponse().setHeader("Content-Type", "application/json")
+                .setBody("""{"name":"קרית אריה","latitude":32.0935124,"longitude":34.8482224}"""))
+            val result = importPlace(link) { api.resolvePlace(PlaceResolveRequest(it)) }
+            assertEquals("קרית אריה", result?.name)
+            assertEquals(32.0935124, result!!.latitude!!, 0.0)
+            val received = requireNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+            assertEquals("/trip-planner/v1/places/resolve", received.path)
+            assertEquals(link, JsonParser.parseString(received.body.readUtf8()).asJsonObject["text"].asString)
+        } finally { server.shutdown() }
+    }
+
 }

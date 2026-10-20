@@ -16,7 +16,7 @@ The goal is a free app without a paid routing API dependency.
 | Kotlin/Compose Android app | Local trips, share intake, endpoints, optimization and manual stop ordering |
 | Android build and unit tests | Debug APK, unit tests and lint passed in GitHub Actions |
 | Android device testing | Not yet run on an emulator or physical phone |
-| Automatic Google Maps/Waze link resolution | Web: automatic destination extraction and allowlisted short-link resolution; Android: explicit coordinate queries |
+| Automatic Google Maps/Waze link resolution | Web and Android: destination extraction and backend short-link resolution |
 | Backend deployment | User-installed on Ubuntu; external health and routing requests verified |
 
 Trips are stored locally on Android using Room. A small backend supplies routing
@@ -101,17 +101,23 @@ cd android
 ```
 
 A configured Android SDK and JDK 17 are required. The current update passed
-local debug APK compilation, 25 unit tests, and lint. GitHub Actions runs the
+local debug APK compilation, 36 unit tests, and lint. GitHub Actions runs the
 same checks and publishes a `trip-planner-debug` artifact (retained seven days)
 under the [latest Android build](https://github.com/zvipev10/trip-planner/actions/workflows/android.yml).
 Download its ZIP, extract `app-debug.apk`, and install it on Android 8+.
-No emulator or physical-device test has been recorded yet. Addresses and
-short links can be collected unresolved; confirm their coordinates before routing.
+No emulator or physical-device test has been recorded yet. Android 0.4.0 makes
+place names optional, extracts names and destination coordinates as links are
+pasted or shared, and resolves short links through the existing backend. A
+numbered name is used when no label is available. Save waits for unresolved
+links; retry preserves input and manually typed names. Plain addresses can still
+be collected unresolved; coordinate validation is required before routing.
 Android supports optimization, distance results, and manual intermediate-stop
 ordering with distance recalculation. Start and end stay fixed and may reference
 the same saved location. Route results last while the trip is open; locations
 and endpoints persist in Room. Android 0.3.0 includes an interactive map showing
 the returned road geometry, labeled stops, zoom/pan and full-route fitting.
+Android 0.4.0 adds the web arrow launcher icon, cream/green/lime palette, branded
+home screen and distance cards.
 
 Debug builds connect to `http://151.145.93.180/trip-planner/`; cleartext HTTP is
 permitted only for that host. Release builds require configuring `API_URL` in

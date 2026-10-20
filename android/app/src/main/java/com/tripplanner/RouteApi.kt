@@ -47,7 +47,11 @@ fun validateRoute(result: RouteResult, request: RouteRequest, manual: Boolean): 
     return result
 }
 
+data class PlaceResolveRequest(val text: String)
+data class PlaceResolveResult(val name: String?, val latitude: Double?, val longitude: Double?)
+
 interface RouteService {
+    @POST("v1/places/resolve") suspend fun resolvePlace(@Body request: PlaceResolveRequest): PlaceResolveResult
     @POST("v1/routes/optimize") suspend fun optimize(@Body request: RouteRequest): RouteResult
     @POST("v1/routes/calculate") suspend fun calculate(@Body request: RouteRequest): RouteResult
 }

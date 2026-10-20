@@ -103,7 +103,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
     fun saveLocation(existing: TripLocation?, name: String, address: String, lat: Double?, lon: Double?, source: String? = null, shared: Boolean = false, onSaved: () -> Unit = {}) {
         val id = selectedId.value ?: return
         write(onSuccess = onSaved) {
-            dao.saveLocation(TripLocation(existing?.id ?: UUID.randomUUID().toString(), id, name.trim(), address.trim(), lat, lon, source ?: existing?.source, existing?.createdAt ?: System.currentTimeMillis()))
+            dao.saveLocation(TripLocation(existing?.id ?: UUID.randomUUID().toString(), id, name.trim().ifBlank { sharedPlaceName(address) ?: "Place ${(dao.snapshot(id)?.locations?.size ?: 0) + 1}" }, address.trim(), lat, lon, source ?: existing?.source, existing?.createdAt ?: System.currentTimeMillis()))
             if (shared && pendingShare.value == source) clearShare()
         }
     }

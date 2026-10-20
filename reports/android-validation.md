@@ -74,3 +74,34 @@ physical-device test, neither of which is available in this environment.
 No backend deployment or paid map key is needed for this Android map. The existing
 backend already returns route geometry. Google/Waze short-link resolution and
 optional imported names remain web-only in this update.
+
+
+## Android 0.4.0 imports and branding — 2026-10-20
+
+Added optional place names with extracted labels or `Place N` fallbacks, automatic
+coordinate extraction during paste/share review, Google destination data and
+Waze geohash support, and backend short-link resolution through the same
+`/v1/places/resolve` endpoint used by the web app. Save awaits extraction when
+needed. Requests are canceled or rejected after input changes/editor dismissal;
+manual names are preserved, old coordinates are cleared when a link changes,
+and failed imports preserve input for retry. Draft text is saved across activity
+recreation. Manual coordinates remain editable. Plain addresses may remain
+unresolved while collecting places.
+
+Added an adaptive launcher icon matching the web arrow mark and a Compose theme
+using the web palette, rounded white cards, branded header/home hero, dark green
+distance cards, and labeled stop rows. The existing interactive route map and
+manual ordering remain included. Room schema and application ID are unchanged.
+
+Local assembleDebug, 36 JVM tests and lintDebug passed with zero lint errors.
+Tests exercise automatic extraction, immediate Save, optional names, custom-name
+preservation, retries, late/canceled replies, invalid coordinates, and the exact
+Google short link through Retrofit's reverse-proxy path. The live VM endpoint
+returned HTTP 200 for that link with `קרית אריה`, `32.0935124`, `34.8482224`.
+No backend update is needed on the currently verified VM. A new backend must
+include the place resolver before short links can work.
+
+This update is source/build/JVM validated. Physical Android interaction, screen
+layout and launcher appearance still require device testing; no emulator is
+available. Play Protect approval and installation behavior are not changed by
+this update. GitHub Actions builds and uploads the APK independently of Codex.
