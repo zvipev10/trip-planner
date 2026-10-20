@@ -105,3 +105,18 @@ This update is source/build/JVM validated. Physical Android interaction, screen
 layout and launcher appearance still require device testing; no emulator is
 available. Play Protect approval and installation behavior are not changed by
 this update. GitHub Actions builds and uploads the APK independently of Codex.
+
+
+## Android 0.4.1 left-to-right layout
+
+Disabled automatic Android RTL mirroring in the application manifest and provided
+`LayoutDirection.Ltr` at the Compose theme root. This covers the main screens,
+rows, controls and dialogs regardless of the phone's locale. The embedded map
+HTML also explicitly declares `dir="ltr"`. Hebrew names remain Unicode text;
+map place popups retain `dir="auto"` so their words display naturally.
+
+Local assembleDebug, 36 JVM tests, and lintDebug passed. The compiled APK manifest
+was checked with aapt and has `supportsRtl=false`; the APK map HTML contains the
+explicit LTR direction. No physical Hebrew-locale phone or emulator verification
+was available. Version code 5 / version name 0.4.1. Existing app data, map, icon,
+import handling and routing features are retained. No backend deployment needed.

@@ -117,7 +117,8 @@ the same saved location. Route results last while the trip is open; locations
 and endpoints persist in Room. Android 0.3.0 includes an interactive map showing
 the returned road geometry, labeled stops, zoom/pan and full-route fitting.
 Android 0.4.0 adds the web arrow launcher icon, cream/green/lime palette, branded
-home screen and distance cards.
+home screen and distance cards. Android 0.4.1 keeps the interface left-to-right
+on Hebrew/RTL phones while preserving natural Hebrew place-name text.
 
 Debug builds connect to `http://151.145.93.180/trip-planner/`; cleartext HTTP is
 permitted only for that host. Release builds require configuring `API_URL` in
