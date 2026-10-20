@@ -1,0 +1,1 @@
+Implement the user-approved first version: identify candidate failed places, preserve original destinations, choose a manual arrival pin or coordinates, show displacement, reset, and recalculate. No automatic suggestions or access guarantees.

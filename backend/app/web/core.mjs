@@ -91,6 +91,16 @@ export function placeName(text, number = 1) {
   return `Place ${number}`;
 }
 
+export const arrivalPoint = (place) => place.arrival || place;
+export function arrivalDistance(place) {
+  const a = arrivalPoint(place), rad = Math.PI / 180;
+  const dlat = (a.latitude - place.latitude) * rad, dlon = (a.longitude - place.longitude) * rad;
+  const h = Math.sin(dlat / 2) ** 2 + Math.cos(place.latitude * rad) * Math.cos(a.latitude * rad) * Math.sin(dlon / 2) ** 2;
+  return Math.round(12742000 * Math.asin(Math.sqrt(Math.min(1, h))));
+}
+export function failedPlaces(trip, ids) {
+  return [...new Set((Array.isArray(ids) ? ids : []).map(id => id === "start" ? trip.startId : id === "end" ? trip.endId : id))].filter(id => trip.places.some(p => p.id === id));
+}
 export function requestFor(trip, manualOrder = null) {
   const first = trip.places.find((p) => p.id === trip.startId),
     last = trip.places.find((p) => p.id === trip.endId);
@@ -104,10 +114,11 @@ export function requestFor(trip, manualOrder = null) {
   if (stops.length > 20) throw Error("Use at most 20 intermediate stops.");
   if (new Set(trip.places.map((p) => p.id)).size !== trip.places.length)
     throw Error("The trip has duplicate locations.");
+  if (!trip.places.every(p => resolved(arrivalPoint(p)))) throw Error("Confirm arrival-point coordinates before planning.");
   const point = (p, id = p.id) => ({
     id,
-    latitude: p.latitude,
-    longitude: p.longitude,
+    latitude: arrivalPoint(p).latitude,
+    longitude: arrivalPoint(p).longitude,
   });
   let ordered = stops;
   if (manualOrder) {
@@ -212,6 +223,7 @@ export function validateSaved(value) {
     )
       throw Error("Saved locations are invalid.");
     // Stored route results are not trusted as current; recalculate after importing/reloading.
+    if (t.places.some(p => p.arrival != null && !resolved(p.arrival))) throw Error("Saved arrival points are invalid.");
     t.plan = null;
   }
   return value;

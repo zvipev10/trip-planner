@@ -1,0 +1,1 @@
+User approved the proposal and requested implementation. Show candidates, choose arrival point, access-unverified explanation, original marker and draggable arrival marker. Keyboard coordinate inputs support map-independent use. Cancel preserves storage; confirmation saves then recalculates. Reset invalidates old routes.

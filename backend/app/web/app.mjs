@@ -1,4 +1,4 @@
-import { mountRouteMap, removeRouteMap } from "./route-map.mjs?v=0.3.0";
+import { mountRouteMap, removeRouteMap } from "./route-map.mjs?v=0.4.0";
 import {
   uid,
   newTrip,
@@ -10,7 +10,10 @@ import {
   currentResult,
   move,
   validateSaved,
-} from "./core.mjs?v=0.3.0";
+  arrivalPoint,
+  arrivalDistance,
+  failedPlaces,
+} from "./core.mjs?v=0.4.0";
 const ARROW =
   '<svg class="icon" aria-hidden="true" viewBox="0 0 16 16"><path d="M3 13L13 3M4 3h9v9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
 const KEY = "trip-planner.web.v1",
@@ -127,6 +130,12 @@ function render() {
       : home()
   ).replaceAll("↗", ARROW);
   if (!t) selected = null;
+  if (t) {
+    const ids = lastFailure?.placeIds || [];
+    const affected = t.places.filter(p => ids.includes(p.id));
+    const choices = affected.length ? affected : t.places.filter(resolved);
+    app.insertAdjacentHTML("beforeend", `<section class="panel" aria-label="Arrival points"><h2>Arrival points</h2>${lastFailure?.code === "location_not_routable" ? `<p role="alert">We couldn’t find a nearby driving road for ${affected.length === 1 ? esc(affected[0].name) : "one of these places"}. Choose an arrival point or edit the original location.</p>` : ""}${choices.map(p => `<div><strong>${esc(p.name)}</strong> ${p.arrival ? `<span class="badge">Arrival point adjusted · ${arrivalDistance(p)} m from destination</span>` : ""}<button type="button" data-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Choose arrival point</button><button type="button" data-edit="${esc(p.id)}">Edit location</button>${p.arrival ? `<button type="button" data-reset-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Reset to original location</button>` : ""}</div>`).join("")}</section>`);
+  }
   bindForms();
   if (t && view === "plan") mountRouteMap(t);
 }
@@ -200,6 +209,7 @@ async function calculate(manual = false) {
       signal: controller.signal,
     });
     if (!response.ok) {
+      const details = await response.json().catch(() => ({}));
       const message =
         {
           422: "Some locations cannot form a car route. Confirm their positions.",
@@ -208,7 +218,10 @@ async function calculate(manual = false) {
           504: "The calculation timed out. Try fewer stops.",
         }[response.status] ||
         `The server could not calculate this route (HTTP ${response.status}).`;
-      throw Error(message);
+      const error = Error(message);
+      error.code = details.error?.code;
+      error.placeIds = failedPlaces(snapshot, details.error?.locationIds);
+      throw error;
     }
     const result = validateReply(await response.json(), request, manual);
     if (
@@ -225,7 +238,7 @@ async function calculate(manual = false) {
     notice("Your route is ready.");
   } catch (error) {
     if (busy?.token !== token) return;
-    lastFailure = { manual };
+    lastFailure = { manual, code: error.code, placeIds: error.placeIds };
     notice(
       controller.signal.aborted
         ? controller.signal.reason === "timeout"
@@ -430,7 +443,11 @@ form.addEventListener("submit", async (e) => {
     mutate((t) => {
       const index = t.places.findIndex((p) => p.id === place.id);
       if (index < 0) t.places.push(place);
-      else t.places[index] = place;
+      else {
+        const previous = t.places[index];
+        if (previous.latitude === place.latitude && previous.longitude === place.longitude && previous.arrival) place.arrival = previous.arrival;
+        t.places[index] = place;
+      }
     });
     dialog.close();
   } catch (error) {
@@ -532,3 +549,51 @@ window.addEventListener("storage", (e) => {
   }
 });
 render();
+
+function openArrival(id) {
+  const trip = active(), place = trip?.places.find(p => p.id === id);
+  if (!place || !resolved(place)) return notice("Confirm destination coordinates first.", true);
+  const tripId = trip.id, target = arrivalPoint(place);
+  const modal = document.createElement("dialog");
+  modal.innerHTML = `<form><h2>Choose arrival point</h2><p>${esc(place.name)} — original destination stays saved.</p><p>Tap the map or drag the arrival pin. Access is unverified; choose a usable entrance or parking area.</p><div id="arrival-map" style="height:300px"></div><p id="arrival-map-status" role="status"></p><label>Arrival latitude<input name="lat" type="number" step="any" min="-90" max="90" required value="${target.latitude}"></label><label>Arrival longitude<input name="lon" type="number" step="any" min="-180" max="180" required value="${target.longitude}"></label><p id="arrival-distance" aria-live="polite"></p><p id="arrival-error" role="alert"></p><button type="button" id="arrival-cancel">Cancel</button><button type="submit">Use this arrival point</button></form>`;
+  document.body.append(modal);
+  modal.showModal();
+  let arrivalMap = null, marker = null;
+  const fields = modal.querySelector("form").elements;
+  const read = () => ({latitude: Number(fields.lat.value), longitude: Number(fields.lon.value)});
+  const update = () => {
+    const point = read();
+    modal.querySelector("#arrival-distance").textContent = fields.lat.value && fields.lon.value && resolved(point) ? `${arrivalDistance({...place, arrival:point})} m from original destination` : "Enter valid coordinates.";
+    if (resolved(point)) marker?.setLatLng([point.latitude, point.longitude]);
+  };
+  modal.querySelector("#arrival-cancel").onclick = () => modal.close();
+  modal.addEventListener("close", () => { arrivalMap?.remove(); modal.remove(); }, {once:true});
+  if (globalThis.L) {
+    const L = globalThis.L;
+    arrivalMap = L.map(modal.querySelector("#arrival-map")).setView([target.latitude,target.longitude],16);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(arrivalMap).on("tileerror", () => {modal.querySelector("#arrival-map-status").textContent="Map tiles unavailable. You can enter arrival coordinates below.";});
+    L.circleMarker([place.latitude,place.longitude],{color:"#a43",radius:8}).addTo(arrivalMap).bindTooltip("Original destination");
+    marker = L.marker([target.latitude,target.longitude],{draggable:true,title:"Arrival point"}).addTo(arrivalMap);
+    const choose = latlng => {fields.lat.value=latlng.lat.toFixed(6);fields.lon.value=latlng.lng.toFixed(6);update();};
+    arrivalMap.on("click",e=>choose(e.latlng));
+    marker.on("dragend",()=>choose(marker.getLatLng()));
+  } else modal.querySelector("#arrival-map-status").textContent="Map unavailable. Enter arrival coordinates below.";
+  fields.lat.oninput = fields.lon.oninput = update;
+  update();
+  modal.querySelector("form").onsubmit = e => {
+    e.preventDefault();
+    try {
+      if (selected !== tripId) throw Error("The active trip changed. Reopen the arrival editor.");
+      const point = read();
+      if (!fields.lat.value || !fields.lon.value || !resolved(point)) throw Error("Enter valid arrival coordinates.");
+      mutate(t => {t.places.find(p=>p.id===id).arrival=point;});
+      modal.close();
+      calculate(false);
+    } catch(error) {modal.querySelector("#arrival-error").textContent=error.message;}
+  };
+}
+app.addEventListener("click",e=>{
+  const choose=e.target.closest("[data-arrival]"), reset=e.target.closest("[data-reset-arrival]");
+  if (choose) openArrival(choose.dataset.arrival);
+  if (reset) mutate(t=>{delete t.places.find(p=>p.id===reset.dataset.resetArrival).arrival;});
+});

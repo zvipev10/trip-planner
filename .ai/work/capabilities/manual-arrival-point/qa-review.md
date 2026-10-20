@@ -1,0 +1,1 @@
+Validate round-trip role mapping, malformed imported arrivals, original preservation, failed retry retention, reset, mobile width and no browser errors. Existing route and backup regression tests must pass. Routing success depends on chosen road position; access is unverified.

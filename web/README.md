@@ -78,3 +78,6 @@ python backend/tests/web/browser_smoke.py
 It simulates the `/trip-planner/` proxy prefix, checks a 390px mobile viewport,
 real optimization/manual recalculation, an injected 503 with retry, persistence,
 and desktop overflow. This is Chromium testing, not physical iPhone/Safari QA.
+
+## Manual arrival points
+If a place has no nearby routable road, choose an arrival point from the error panel. Tap the map, drag the arrival marker, or enter coordinates; the original destination remains saved. Confirmation saves the override and recalculates. Reset to original location removes it. A place used for both start and end uses the same override at both ends. Arrival overrides survive browser reload and backup export/import. Access is unverified: select an appropriate entrance or parking area. No automatic suggestions or walking connection are provided.
