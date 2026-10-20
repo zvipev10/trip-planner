@@ -42,3 +42,15 @@ def test_real_binary_distance_objective():
     quickest = provider.parse_output(subprocess.run(command, check=True, text=True, capture_output=True).stdout)
     assert quickest.leg_distances[0] == 3170
     assert shortest.leg_distances[0] < quickest.leg_distances[0]
+
+@pytest.mark.parametrize('waypoint,expected', [('1', ['first']), ('2', ['second']), ('unknown', [])])
+def test_unroutable_error_identifies_only_failed_waypoint(monkeypatch, waypoint, expected):
+    from time import monotonic
+    provider = object.__new__(RoutinoProvider)
+    provider.binary = provider.database = provider.profiles = provider.translations = 'fixture'
+    provider.deadline = monotonic() + 60
+    monkeypatch.setattr(subprocess, 'run', lambda *args, **kwargs: subprocess.CompletedProcess([], 1, '', f'Error: Cannot find node close to specified point {waypoint}.'))
+    with pytest.raises(PlanningError) as exc:
+        provider._leg(Point(id='first', latitude=32, longitude=35), Point(id='second', latitude=33, longitude=35))
+    assert exc.value.code == 'location_not_routable'
+    assert exc.value.location_ids == expected

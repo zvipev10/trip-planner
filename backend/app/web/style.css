@@ -744,3 +744,16 @@ dialog label {
     order: 1;
   }
 }
+
+.arrival-recovery { margin-top: 24px; border-left: 4px solid #b77730; }
+.arrival-recovery-heading h2 { margin: 8px 0 12px; font-size: clamp(21px, 4vw, 27px); }
+.arrival-recovery-heading p { line-height: 1.6; }
+.arrival-recovery-place { padding-top: 20px; margin-top: 20px; border-top: 1px solid #dedfd6; min-width: 0; }
+.arrival-recovery-place h3 { margin: 0 0 10px; overflow-wrap: anywhere; font-size: 18px; line-height: 1.5; text-align: start; }
+.arrival-recovery-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; align-items: center; }
+.arrival-recovery-actions button { margin: 0; white-space: normal; }
+.arrival-adjustment { font-size: 13px; line-height: 1.5; color: #265d4f; }
+@media (max-width: 600px) {
+  .arrival-recovery-actions { flex-direction: column; align-items: stretch; }
+  .arrival-recovery-actions button { width: 100%; }
+}

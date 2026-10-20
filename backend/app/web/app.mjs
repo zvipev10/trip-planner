@@ -1,4 +1,4 @@
-import { mountRouteMap, removeRouteMap } from "./route-map.mjs?v=0.4.0";
+import { mountRouteMap, removeRouteMap } from "./route-map.mjs?v=0.4.1";
 import {
   uid,
   newTrip,
@@ -13,7 +13,7 @@ import {
   arrivalPoint,
   arrivalDistance,
   failedPlaces,
-} from "./core.mjs?v=0.4.0";
+} from "./core.mjs?v=0.4.1";
 const ARROW =
   '<svg class="icon" aria-hidden="true" viewBox="0 0 16 16"><path d="M3 13L13 3M4 3h9v9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
 const KEY = "trip-planner.web.v1",
@@ -130,11 +130,10 @@ function render() {
       : home()
   ).replaceAll("↗", ARROW);
   if (!t) selected = null;
-  if (t) {
-    const ids = lastFailure?.placeIds || [];
+  if (t && view === "plan" && lastFailure?.code === "location_not_routable") {
+    const ids = lastFailure.placeIds || [];
     const affected = t.places.filter(p => ids.includes(p.id));
-    const choices = affected.length ? affected : t.places.filter(resolved);
-    app.insertAdjacentHTML("beforeend", `<section class="panel" aria-label="Arrival points"><h2>Arrival points</h2>${lastFailure?.code === "location_not_routable" ? `<p role="alert">We couldn’t find a nearby driving road for ${affected.length === 1 ? esc(affected[0].name) : "one of these places"}. Choose an arrival point or edit the original location.</p>` : ""}${choices.map(p => `<div><strong>${esc(p.name)}</strong> ${p.arrival ? `<span class="badge">Arrival point adjusted · ${arrivalDistance(p)} m from destination</span>` : ""}<button type="button" data-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Choose arrival point</button><button type="button" data-edit="${esc(p.id)}">Edit location</button>${p.arrival ? `<button type="button" data-reset-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Reset to original location</button>` : ""}</div>`).join("")}</section>`);
+    app.insertAdjacentHTML("beforeend", `<section class="panel arrival-recovery" aria-label="Arrival points"><div class="arrival-recovery-heading"><span class="eyebrow">LOCATION NEEDS ATTENTION</span><h2>Choose a reachable arrival point</h2><p role="alert">${affected.length ? "We couldn’t find a nearby driving road for the location below." : "We couldn’t identify the affected location. Retry the calculation or check your saved locations."}</p></div>${affected.map(p => `<article class="arrival-recovery-place"><h3 dir="auto">${esc(p.name)}</h3><p class="help">Your original destination stays saved. Choose a suitable entrance or parking area; access is unverified.</p>${p.arrival ? `<p class="arrival-adjustment">Arrival point adjusted · ${arrivalDistance(p)} m from destination</p>` : ""}<div class="arrival-recovery-actions"><button type="button" data-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Choose arrival point</button><button type="button" class="secondary" data-edit="${esc(p.id)}">Edit location</button>${p.arrival ? `<button type="button" class="text-button" data-reset-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Reset to original location</button>` : ""}</div></article>`).join("")}</section>`);
   }
   bindForms();
   if (t && view === "plan") mountRouteMap(t);
