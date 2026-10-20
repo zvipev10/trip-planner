@@ -24,8 +24,8 @@ fun routeRequest(snapshot: TripSnapshot, manualOrder: List<String>? = null): Rou
     val places = snapshot.locations.associateBy { it.id }
     fun point(id: String?, wireId: String? = null): RoutePoint {
         val place = requireNotNull(places[id]) { "Choose both starting and ending points." }
-        val lat = place.latitude
-        val lon = place.longitude
+        val lat = place.arrivalLatitude ?: place.latitude
+        val lon = place.arrivalLongitude ?: place.longitude
         require(lat != null && lon != null && lat.isFinite() && lon.isFinite() && lat in -90.0..90.0 && lon in -180.0..180.0) { "Confirm coordinates for ${place.name}." }
         return RoutePoint(wireId ?: place.id, lat, lon)
     }
@@ -61,3 +61,14 @@ fun routeService(): RouteService {
     val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(90, TimeUnit.SECONDS).callTimeout(100, TimeUnit.SECONDS).build()
     return Retrofit.Builder().baseUrl(BuildConfig.API_URL).client(client).addConverterFactory(GsonConverterFactory.create()).build().create(RouteService::class.java)
 }
+
+
+fun restoredPlan(json: String?, snapshot: TripSnapshot): RoutePlan? = runCatching {
+    val plan = com.google.gson.Gson().fromJson(json ?: return null, RoutePlan::class.java)
+    require(plan.tripId == snapshot.trip.id && plan.revision == snapshot.trip.revision && plan.distance != null)
+    val request = routeRequest(snapshot, if (plan.manual) plan.order else null)
+    require(plan.order.size == request.stops.size && plan.order.toSet() == request.stops.map { it.id }.toSet())
+    require(requireNotNull(plan.distance) in 0..21_000_000_000L)
+    require(validatedGeometry(RouteGeometry("LineString", plan.geometry)) != null)
+    plan
+}.getOrNull()

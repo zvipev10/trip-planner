@@ -12,6 +12,7 @@ data class Trip(
     val revision: Long = 0,
     val startId: String? = null,
     val endId: String? = null,
+    val routeJson: String? = null,
 )
 
 @Entity(
@@ -28,6 +29,8 @@ data class TripLocation(
     val longitude: Double? = null,
     val source: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    val arrivalLatitude: Double? = null,
+    val arrivalLongitude: Double? = null,
 ) {
     @get:Ignore
     val resolved: Boolean get() = latitude != null && longitude != null
@@ -54,6 +57,9 @@ abstract class TripDao {
     @Transaction
     @Query("SELECT * FROM trips WHERE id = :id")
     abstract suspend fun snapshot(id: String): TripSnapshot?
+
+    @Query("UPDATE trips SET routeJson = :json WHERE id = :id AND revision = :revision")
+    abstract suspend fun saveRoute(id: String, revision: Long, json: String)
 
     @Insert abstract suspend fun insertTrip(trip: Trip)
     @Upsert abstract suspend fun upsertLocation(location: TripLocation)
@@ -94,14 +100,20 @@ abstract class TripDao {
     }
 }
 
-@Database(entities = [Trip::class, TripLocation::class], version = 1, exportSchema = true)
+@Database(entities = [Trip::class, TripLocation::class], version = 2, exportSchema = true)
 abstract class TripDatabase : RoomDatabase() {
     abstract fun trips(): TripDao
     companion object {
         @Volatile private var instance: TripDatabase? = null
         fun get(context: Context): TripDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, TripDatabase::class.java, "trips.db")
-                .build().also { instance = it }
+                .addMigrations(object : androidx.room.migration.Migration(1, 2) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE trips ADD COLUMN routeJson TEXT")
+                        db.execSQL("ALTER TABLE locations ADD COLUMN arrivalLatitude REAL")
+                        db.execSQL("ALTER TABLE locations ADD COLUMN arrivalLongitude REAL")
+                    }
+                }).build().also { instance = it }
         }
     }
 }

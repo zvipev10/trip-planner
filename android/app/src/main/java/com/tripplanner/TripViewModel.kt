@@ -26,6 +26,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
 
     val plan = MutableStateFlow<RoutePlan?>(null)
     val routing = MutableStateFlow(false)
+    val failedLocations = MutableStateFlow<List<String>>(emptyList())
     private var routeGeneration = 0L
     private var routeJob: kotlinx.coroutines.Job? = null
 
@@ -47,6 +48,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
         val generation = ++routeGeneration
         routing.value = true
         error.value = null
+        failedLocations.value = emptyList()
         routeJob = viewModelScope.launch {
             try {
                 val snapshot = requireNotNull(dao.snapshot(id)) { "Trip no longer exists." }
@@ -55,10 +57,19 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
                 val service = routeService()
                 val result = validateRoute(if (manual) service.calculate(request) else service.optimize(request), request, manual)
                 if (generation == routeGeneration && selectedId.value == id && dao.findTrip(id)?.revision == request.revision) {
-                    plan.value = RoutePlan(id, request.revision, requireNotNull(result.orderedStopIds), result.distanceMeters, manual, validatedGeometry(result.geometry))
+                    val resultPlan = RoutePlan(id, request.revision, requireNotNull(result.orderedStopIds), result.distanceMeters, manual, validatedGeometry(result.geometry))
+                    dao.saveRoute(id, request.revision, com.google.gson.Gson().toJson(resultPlan))
+                    plan.value = resultPlan
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: retrofit2.HttpException) {
+                val detail = runCatching { com.google.gson.JsonParser.parseString(failure.response()?.errorBody()?.string()).asJsonObject.getAsJsonObject("error") }.getOrNull()
+                if (detail?.get("code")?.asString == "location_not_routable") {
+                    val currentTrip = dao.findTrip(id)
+                    failedLocations.value = detail.getAsJsonArray("locationIds")?.mapNotNull {
+                        when (val key = it.asString) { "endpoint:start" -> currentTrip?.startId; "endpoint:end" -> currentTrip?.endId; else -> key }
+                    }?.distinct() ?: emptyList()
+                }
                 error.value = when (failure.code()) {
                     422 -> "Server rejected these locations. Check endpoints and coordinates."
                     503 -> "Routing is unavailable. Please try again later."
@@ -71,7 +82,32 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
         }
     }
 
-    fun select(id: String?) { cancelRoute(); plan.value = null; saved["tripId"] = id; saved["screen"] = "locations" }
+    init {
+        viewModelScope.launch {
+            trip.collect { item ->
+                if (item != null && item.id == selectedId.value && plan.value?.revision != item.revision) {
+                    dao.snapshot(item.id)?.let { plan.value = restoredPlan(item.routeJson, it) }
+                }
+            }
+        }
+    }
+
+    fun select(id: String?) {
+        cancelRoute(); plan.value = null; failedLocations.value = emptyList(); error.value = null
+        saved["tripId"] = id; saved["screen"] = "locations"
+        if (id != null) viewModelScope.launch {
+            val snapshot = dao.snapshot(id) ?: return@launch
+            if (selectedId.value == id) {
+                plan.value = restoredPlan(snapshot.trip.routeJson, snapshot)
+                if (snapshot.trip.startId != null && snapshot.trip.endId != null) saved["screen"] = "endpoints"
+            }
+        }
+    }
+
+    fun arrival(place: TripLocation, lat: Double?, lon: Double?) {
+        require((lat == null && lon == null) || (lat != null && lon != null && lat.isFinite() && lon.isFinite() && lat in -90.0..90.0 && lon in -180.0..180.0))
+        write(onSuccess = { saving.value = false; calculateRoute() }) { dao.saveLocation(place.copy(arrivalLatitude = lat, arrivalLongitude = lon)) }
+    }
     fun showEndpoints() { saved["screen"] = "endpoints" }
     fun showLocations() { saved["screen"] = "locations" }
     fun acceptShare(text: String) { saved["share"] = text.take(16000) }
@@ -81,6 +117,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
         if (saving.value) return
         cancelRoute()
         plan.value = null
+        failedLocations.value = emptyList()
         saving.value = true
         error.value = null
         viewModelScope.launch {
@@ -103,7 +140,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
     fun saveLocation(existing: TripLocation?, name: String, address: String, lat: Double?, lon: Double?, source: String? = null, shared: Boolean = false, onSaved: () -> Unit = {}) {
         val id = selectedId.value ?: return
         write(onSuccess = onSaved) {
-            dao.saveLocation(TripLocation(existing?.id ?: UUID.randomUUID().toString(), id, name.trim().ifBlank { sharedPlaceName(address) ?: "Place ${(dao.snapshot(id)?.locations?.size ?: 0) + 1}" }, address.trim(), lat, lon, source ?: existing?.source, existing?.createdAt ?: System.currentTimeMillis()))
+            dao.saveLocation(TripLocation(existing?.id ?: UUID.randomUUID().toString(), id, name.trim().ifBlank { sharedPlaceName(address) ?: "Place ${(dao.snapshot(id)?.locations?.size ?: 0) + 1}" }, address.trim(), lat, lon, source ?: existing?.source, existing?.createdAt ?: System.currentTimeMillis(), existing?.arrivalLatitude?.takeIf { existing.latitude == lat && existing.longitude == lon }, existing?.arrivalLongitude?.takeIf { existing.latitude == lat && existing.longitude == lon }))
             if (shared && pendingShare.value == source) clearShare()
         }
     }
