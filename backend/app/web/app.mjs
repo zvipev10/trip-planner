@@ -135,6 +135,8 @@ function render() {
     const affected = t.places.filter(p => ids.includes(p.id));
     app.insertAdjacentHTML("beforeend", `<section class="panel arrival-recovery" aria-label="Arrival points"><div class="arrival-recovery-heading"><span class="eyebrow">LOCATION NEEDS ATTENTION</span><h2>Choose a reachable arrival point</h2><p role="alert">${affected.length ? "We couldn’t find a nearby driving road for the location below." : "We couldn’t identify the affected location. Retry the calculation or check your saved locations."}</p></div>${affected.map(p => `<article class="arrival-recovery-place"><h3 dir="auto">${esc(p.name)}</h3><p class="help">Your original destination stays saved. Choose a suitable entrance or parking area; access is unverified.</p>${p.arrival ? `<p class="arrival-adjustment">Arrival point adjusted · ${arrivalDistance(p)} m from destination</p>` : ""}<div class="arrival-recovery-actions"><button type="button" data-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Choose arrival point</button><button type="button" class="secondary" data-edit="${esc(p.id)}">Edit location</button>${p.arrival ? `<button type="button" class="text-button" data-reset-arrival="${esc(p.id)}" ${busy ? "disabled" : ""}>Reset to original location</button>` : ""}</div></article>`).join("")}</section>`);
   }
+  const recovery = app.querySelector(".arrival-recovery");
+  if (recovery) app.querySelector(".plan-layout")?.before(recovery);
   bindForms();
   if (t && view === "plan") mountRouteMap(t);
 }
