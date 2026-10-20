@@ -81,3 +81,6 @@ and desktop overflow. This is Chromium testing, not physical iPhone/Safari QA.
 
 ## Manual arrival points
 If a place has no nearby routable road, choose an arrival point from the error panel. Tap the map, drag the arrival marker, or enter coordinates; the original destination remains saved. Confirmation saves the override and recalculates. Reset to original location removes it. A place used for both start and end uses the same override at both ends. Arrival overrides survive browser reload and backup export/import. Access is unverified: select an appropriate entrance or parking area. No automatic suggestions or walking connection are provided.
+
+## Saved endpoints and routes
+Endpoints persist per trip and appear as a summary; expand Edit start & end to change them. Reopening a configured trip opens its route screen. The last valid calculation (order, distance, geometry) survives reload and backup import. Stored results are schema-checked; malformed, stale, or revision-mismatched results are discarded. Changing locations/endpoints invalidates the old route. Routes are saved snapshots, not refreshed road conditions. Data remains in this browser unless exported.

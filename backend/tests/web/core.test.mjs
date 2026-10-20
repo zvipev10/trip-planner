@@ -196,3 +196,17 @@ test("invalid imported arrival coordinates are rejected", () => {
   assert.throws(()=>validateSaved([t]),/arrival/);
   assert.throws(()=>requestFor(t),/arrival/);
 });
+
+test("valid calculated routes and endpoints survive reload and backup validation", () => {
+  for(const manual of [false,true]) {
+    const t=sample();t.endId='a';
+    const request=requestFor(t,manual?['c','b']:null);
+    t.plan=validateReply({revision:t.revision,orderedStopIds:request.stops.map(p=>p.id),distanceMeters:300,legDistancesMeters:[100,100,100],geometry:{coordinates:[[35,32],[35.01,32.01],[35,32]]},status:manual?'manual':'optimized'},request,manual);
+    const restored=validateSaved(JSON.parse(JSON.stringify([t])))[0];
+    assert.equal(restored.startId,'a');assert.equal(restored.endId,'a');
+    assert.equal(restored.plan.distance,300);assert.deepEqual(restored.plan.geometry,t.plan.geometry);
+    assert.equal(restored.plan.manual,manual);
+    restored.revision++;
+    assert.equal(validateSaved([restored])[0].plan,null);
+  }
+});

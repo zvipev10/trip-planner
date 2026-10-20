@@ -222,9 +222,17 @@ export function validateSaved(value) {
       new Set(t.places.map((p) => p.id)).size !== t.places.length
     )
       throw Error("Saved locations are invalid.");
-    // Stored route results are not trusted as current; recalculate after importing/reloading.
+    // Validate stored results exactly as API replies before displaying them.
     if (t.places.some(p => p.arrival != null && !resolved(p.arrival))) throw Error("Saved arrival points are invalid.");
-    t.plan = null;
+    if (t.plan) {
+      try {
+        const p = t.plan;
+        if (p.stale || typeof p.manual !== "boolean" || !Array.isArray(p.geometry) || p.geometry.length < 2) throw Error("Invalid saved route");
+        const request = requestFor(t, p.manual ? p.order : null);
+        t.plan = validateReply({revision:p.revision, orderedStopIds:p.order, distanceMeters:p.distance, legDistancesMeters:p.legs, geometry:{coordinates:p.geometry}, status:p.manual ? "manual" : "optimized"}, request, p.manual);
+        if (!t.plan.geometry) t.plan = null;
+      } catch { t.plan = null; }
+    }
   }
   return value;
 }

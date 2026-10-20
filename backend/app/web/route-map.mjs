@@ -1,4 +1,4 @@
-import { arrivalPoint } from "./core.mjs?v=0.4.1";
+import { arrivalPoint } from "./core.mjs?v=0.4.2";
 let map = null;
 
 export function removeRouteMap() {
