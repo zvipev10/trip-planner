@@ -75,6 +75,19 @@ def test_duplicate_ids(client, payload):
     assert client.post("/v1/routes/optimize", json=payload).status_code == 422
 
 
+def test_validation_logs_reason_without_private_inputs(client, payload, caplog):
+    payload["end"]["id"] = payload["start"]["id"] = "private-place-id"
+    payload["private-place-name"] = "https://example.com/private-link"
+    with caplog.at_level("WARNING", logger="uvicorn.error"):
+        response = client.post("/v1/routes/optimize", json=payload)
+    assert response.status_code == 422
+    assert '"duplicatePointIds": true' in caplog.text
+    assert '"stopCount": 2' in caplog.text
+    assert '"type": "extra_forbidden"' in caplog.text
+    for private in ("private-place-id", "private-place-name", "private-link", "32.08", "34.78"):
+        assert private not in caplog.text
+
+
 def test_stop_limit(client, payload):
     payload["stops"] = [{"id": str(i), "latitude": 32, "longitude": 35} for i in range(21)]
     assert client.post("/v1/routes/optimize", json=payload).status_code == 422
