@@ -13,3 +13,6 @@ Publishing: dedicated fix/route-diagnostic-logging branch; no direct main push.
 Operator command: sudo journalctl -u trip-planner --since '10 minutes ago' --no-pager
 
 Next: verify tests, deploy, reproduce the failing trip, inspect request_validation_failed or routing_failure records. No architecture or product-context update needed.
+
+## Validation and deployment
+65 backend tests passed; one optional routing fixture skipped. Public health passed after deployment. An empty optimize request returned the unchanged HTTP 422 response. Deployed commit b6b41a4 on fix/route-diagnostic-logging; PR #1 is draft and unmerged. VM tracks the logging branch until review/merge; return to main after merge. No product behavior or interface change. Follow-up: reproduce the user's actual trip failure and inspect sanitized validation logs.
