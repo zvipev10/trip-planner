@@ -117,10 +117,23 @@ def embedded_google_place(page, expected_ftid):
         payload, _ = json.JSONDecoder().raw_decode(page[start.end():])
     except (ValueError, RecursionError):
         return None
+    try:
+        feature_pair = [str(int(part, 16)) for part in expected_ftid.split(":")]
+    except ValueError:
+        return None
 
     def find(node, label=None):
         if not isinstance(node, list):
             return None
+        # Google search-style embeds use exact decimal feature-ID pairs and
+        # integer coordinates in ten-millionths of a degree. Never use another
+        # result or the surrounding map camera as the destination.
+        if len(node) >= 4 and node[0] == feature_pair and isinstance(node[3], list) and len(node[3]) == 2:
+            lat, lon = node[3]
+            if type(lat) is int and type(lon) is int:
+                point = parse_place(f"{lat / 10_000_000},{lon / 10_000_000}")
+                if "latitude" in point:
+                    return {**point, "name": label[:200] if label else None}
         if len(node) >= 3 and node[0] == expected_ftid and isinstance(node[1], str) and isinstance(node[2], list) and len(node[2]) == 2:
             lat, lon = node[2]
             if type(lat) in (int, float) and type(lon) in (int, float):
@@ -186,6 +199,7 @@ async def resolve_place(text, client=None):
                 page = html.unescape(body[:1_000_000].decode("utf-8", errors="replace"))
                 embedded = embedded_google_place(page, expected_ftid)
                 if embedded:
+                    embedded["name"] = embedded.get("name") or result.get("name")
                     return embedded
                 # Resolve canonical destination metadata, not unrelated map markers in page scripts.
                 metadata = DestinationMetadata()

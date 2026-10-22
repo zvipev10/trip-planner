@@ -9,3 +9,6 @@ Plan: preserve existing endpoint selections, open configured trips on the route 
 
 ## Android 0.5.0 parity
 User authorized merge and APK refresh. Ported arrival-point recovery only for server-identified places, map/manual coordinate picking, original-coordinate preservation, same-place endpoint roles, saved route restoration and endpoint summaries. Room v1→v2 migration adds nullable arrival coordinates and route JSON without deleting saved trips. Route cache is accepted only for matching trip/revision and valid geometry/order. Fixed bundled map helper dependency. APK versionCode 6, versionName 0.5.0. CI build, unit tests and lint pending; no device/emulator acceptance claimed.
+
+## Google short-link decimal feature records
+Reported link pKusobkEnXiwP3rU6 reproduced unresolved_place on the deployed API. Google embeds multiple business records using decimal feature-ID pairs and E7 integer coordinates. Added exact feature matching for this response shape; mismatched records and invalid coordinates are rejected. Retains the name parsed from the redirect when the embed record has no display label. Regression cases cover matching, unrelated business and invalid latitude. No API or data-model changes. Next: run backend suite and verify the actual link before deployment.
