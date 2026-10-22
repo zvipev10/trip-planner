@@ -173,3 +173,17 @@ def test_android_short_link_path_id_round_trip():
             return await resolve_place('https://maps.app.goo.gl/ckFFYsB7ADuppy5d9?g_st=ac', client)
     assert asyncio.run(run()) == {'name': 'עין שוקו', 'latitude': 32.7389393, 'longitude': 35.6507361}
     assert len(calls) == 2
+
+@pytest.mark.parametrize('matching,lat,expected', [(True,328793173,True),(False,328793173,False),(True,1000000000,False)])
+def test_decimal_feature_pair_embed_uses_only_matching_destination(matching,lat,expected):
+    import json
+    from app.places import embedded_google_place
+    ftid='0x151c31261f36a8b5:0xc1898179c9e8ca08'
+    pair=[str(int(p,16)) for p in ftid.split(':')]
+    if not matching: pair[1]='123'
+    payload=[None,[[['999','888'],'/g/other',None,[320000000,350000000]],[pair,'/g/destination',None,[lat,353572992]]]]
+    result=embedded_google_place('initEmbed('+json.dumps(payload)+');',ftid)
+    if expected:
+        assert result['latitude']==32.8793173
+        assert result['longitude']==35.3572992
+    else: assert result is None
