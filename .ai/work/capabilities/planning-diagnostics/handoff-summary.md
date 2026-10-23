@@ -1,0 +1,4 @@
+# Routing failure diagnostics
+User requested logs for next failed attempt. Add request-scoped IDs, matrix generation/route timings, bounded unreachable pairs and disconnected point indices, solver numeric status/budget/found/elapsed, known Routino failure categories and final error. Index 0 is start, 1..N intermediate stops in submitted order, last index is end. Addresses, IDs, links, coordinates, distances and raw provider stderr remain excluded. No API/solver behavior changes. Use existing systemd journal; no client update needed.
+
+Plan/review: contextvars propagate sync worker context; always reset in finally. Generate IDs server-side. Whitelist failure messages only. Cap matrices by existing 20-stop API limit. Tests verify success/failure correlation, matrix indices and no coordinate leakage. Deploy only after backend suite passes. Physical user retry is acceptance.

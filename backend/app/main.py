@@ -1,6 +1,9 @@
 from pathlib import Path
 import json
 import logging
+from time import monotonic
+from uuid import uuid4
+from .diagnostics import event, request_id
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -57,15 +60,39 @@ def health(provider: RoutingProvider = Depends(get_provider)):
 
 
 def calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
+    token = request_id.set(uuid4().hex[:16])
+    started = monotonic()
+    event("started", mode="optimize" if reorder else "calculate", pointCount=len(request.points), sameEndpoints=(request.start.latitude == request.end.latitude and request.start.longitude == request.end.longitude))
+    try:
+        result = _calculate(request, provider, reorder)
+        event("completed", elapsedMs=round((monotonic() - started) * 1000))
+        return result
+    except PlanningError as exc:
+        event("failed", code=exc.code, status=exc.status, elapsedMs=round((monotonic() - started) * 1000))
+        raise
+    except Exception:
+        event("failed", code="unexpected_error", elapsedMs=round((monotonic() - started) * 1000))
+        raise
+    finally:
+        request_id.reset(token)
+
+
+def _calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
     points = request.points
     if reorder:
+        started = monotonic()
+        event("matrix_started")
         matrix = provider.distance_matrix(points, request.road_policy)
         validate_matrix(matrix, len(points))
+        event("matrix_ready", elapsedMs=round((monotonic() - started) * 1000), unreachablePairs=[[i, j] for i, row in enumerate(matrix) for j, value in enumerate(row) if i != j and value is None], noOutgoing=[i for i in range(len(points) - 1) if all(matrix[i][j] is None for j in range(1, len(points)) if i != j)], noIncoming=[j for j in range(1, len(points)) if all(matrix[i][j] is None for i in range(len(points) - 1) if i != j)])
         order = optimize(matrix)
     else:
         order = list(range(len(points)))
     ordered = [points[index] for index in order]
+    event("route_started", order=order)
+    started = monotonic()
     road = provider.route(ordered, request.road_policy)
+    event("route_ready", elapsedMs=round((monotonic() - started) * 1000), legCount=len(road.leg_distances))
     if len(road.leg_distances) != len(ordered) - 1 or any(type(d) is not int or d < 0 for d in road.leg_distances):
         raise PlanningError("invalid_provider_response", "Routing provider returned invalid legs.", 502)
     if len(road.coordinates) < 2:

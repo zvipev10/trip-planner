@@ -6,6 +6,7 @@ import subprocess
 from threading import Lock
 from time import monotonic
 
+from .diagnostics import event
 from .models import Point, RoadPolicy
 from .provider import Matrix, PlanningError, RoadRoute
 
@@ -52,6 +53,7 @@ class RoutinoProvider:
             # failures (e.g. missing graph files) are configuration/service errors.
             unreachable = ("Cannot find initial section of route", "Cannot find final section of route", "Cannot find super-route")
             if any(message in result.stderr for message in unreachable):
+                event("routino_unreachable", reason=next(message for message in unreachable if message in result.stderr))
                 return None
             if "Cannot find node close to specified point" in result.stderr:
                 waypoint = re.search(r"Cannot find node close to specified point ([12])\b", result.stderr)

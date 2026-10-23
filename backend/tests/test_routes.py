@@ -143,3 +143,38 @@ def test_invalid_provider_geometry_is_502(client, payload):
     response = client.post("/v1/routes/optimize", json=payload)
     assert response.status_code == 502
     assert response.json()["error"]["code"] == "invalid_provider_response"
+
+
+def test_planning_diagnostics_correlate_stages_without_locations(client, payload, caplog):
+    import json
+    from app.diagnostics import request_id
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        response = client.post("/v1/routes/optimize", json=payload)
+    assert response.status_code == 200
+    events = [json.loads(r.message.split("planning_diagnostic ", 1)[1]) for r in caplog.records if "planning_diagnostic " in r.message]
+    assert {e["event"] for e in events} >= {"started", "matrix_ready", "solver_finished", "route_ready", "completed"}
+    assert len({e["requestId"] for e in events}) == 1
+    assert next(e for e in events if e["event"] == "solver_finished")["found"] is True
+    assert next(e for e in events if e["event"] == "matrix_ready")["unreachablePairs"] == []
+    assert request_id.get() == "unassigned"
+    assert "32.08" not in caplog.text and "34.78" not in caplog.text
+
+
+def test_planning_diagnostics_record_disconnected_stops(client, payload, caplog):
+    import json
+    from app.diagnostics import request_id
+    class Disconnected(FixtureProvider):
+        def distance_matrix(self, points, policy):
+            return [[0 if i == j else None for j in range(4)] for i in range(4)]
+    app.dependency_overrides[get_provider] = Disconnected
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        response = client.post("/v1/routes/optimize", json=payload)
+    assert response.status_code == 422
+    events = [json.loads(r.message.split("planning_diagnostic ", 1)[1]) for r in caplog.records if "planning_diagnostic " in r.message]
+    matrix = next(e for e in events if e["event"] == "matrix_ready")
+    assert matrix["noOutgoing"] == [0, 1, 2]
+    assert matrix["noIncoming"] == [1, 2, 3]
+    assert [0, 1] in matrix["unreachablePairs"]
+    assert next(e for e in events if e["event"] == "failed")["code"] == "no_route_found"
+    assert len({e["requestId"] for e in events}) == 1
+    assert request_id.get() == "unassigned"
