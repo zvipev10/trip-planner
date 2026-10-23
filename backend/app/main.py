@@ -64,11 +64,12 @@ def calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
     started = monotonic()
     event("started", mode="optimize" if reorder else "calculate", pointCount=len(request.points), sameEndpoints=(request.start.latitude == request.end.latitude and request.start.longitude == request.end.longitude))
     try:
+        event("request", provider=provider.name, payload=request.model_dump(mode="json", by_alias=True))
         result = _calculate(request, provider, reorder)
         event("completed", elapsedMs=round((monotonic() - started) * 1000))
         return result
     except PlanningError as exc:
-        event("failed", code=exc.code, status=exc.status, elapsedMs=round((monotonic() - started) * 1000))
+        event("failed", code=exc.code, status=exc.status, message=exc.message, locationIds=exc.location_ids, elapsedMs=round((monotonic() - started) * 1000))
         raise
     except Exception:
         event("failed", code="unexpected_error", elapsedMs=round((monotonic() - started) * 1000))
@@ -84,7 +85,7 @@ def _calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
         event("matrix_started")
         matrix = provider.distance_matrix(points, request.road_policy)
         validate_matrix(matrix, len(points))
-        event("matrix_ready", elapsedMs=round((monotonic() - started) * 1000), unreachablePairs=[[i, j] for i, row in enumerate(matrix) for j, value in enumerate(row) if i != j and value is None], noOutgoing=[i for i in range(len(points) - 1) if all(matrix[i][j] is None for j in range(1, len(points)) if i != j)], noIncoming=[j for j in range(1, len(points)) if all(matrix[i][j] is None for i in range(len(points) - 1) if i != j)])
+        event("matrix_ready", distances=matrix, elapsedMs=round((monotonic() - started) * 1000), unreachablePairs=[[i, j] for i, row in enumerate(matrix) for j, value in enumerate(row) if i != j and value is None], noOutgoing=[i for i in range(len(points) - 1) if all(matrix[i][j] is None for j in range(1, len(points)) if i != j)], noIncoming=[j for j in range(1, len(points)) if all(matrix[i][j] is None for i in range(len(points) - 1) if i != j)])
         order = optimize(matrix)
     else:
         order = list(range(len(points)))

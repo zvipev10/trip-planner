@@ -1,4 +1,4 @@
-"""Bounded routing diagnostics without user location data."""
+"""Routing diagnostics including user-authorized replay payloads and coordinates."""
 from contextvars import ContextVar
 import json
 import logging
