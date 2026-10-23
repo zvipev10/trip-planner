@@ -768,3 +768,6 @@ dialog label {
 .trip-delete { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 48px; height: 48px; padding: 0; background: transparent; color: var(--muted); border: 0; border-radius: 50%; }
 .trip-delete:hover { color: #a33434; background: #faeeee; }
 .trip-delete:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.trips-heading { flex-direction: column; align-items: flex-start; gap: 4px; }
+.trips-heading h2 { margin: 0; }
