@@ -67,7 +67,7 @@ def calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
         submitted_policy = request.road_policy
         if callable(getattr(provider, "effective_policy", None)):
             request = request.model_copy(update={"road_policy": provider.effective_policy(submitted_policy)})
-        event("request", provider=provider.name, payload=request.model_dump(mode="json", by_alias=True), submittedRoadPolicy=submitted_policy.model_dump(mode="json", by_alias=True))
+        event("request", provider=provider.name, routingProfile=getattr(provider, "diagnostic_profile", None), payload=request.model_dump(mode="json", by_alias=True), submittedRoadPolicy=submitted_policy.model_dump(mode="json", by_alias=True))
         result = _calculate(request, provider, reorder)
         event("completed", elapsedMs=round((monotonic() - started) * 1000))
         return result

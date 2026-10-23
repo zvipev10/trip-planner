@@ -66,7 +66,7 @@ def engine_worker(config, connection):
 
 class EngineWorker:
     """One persistent native worker; terminate a calculation after its deadline."""
-    def __init__(self, config, timeout=10):
+    def __init__(self, config, timeout=20):
         self.config, self.timeout = config, timeout
         self.process = None
         self.connection = None

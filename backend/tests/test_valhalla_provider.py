@@ -18,7 +18,7 @@ def test_directed_pair_distances_and_matching_policy():
     def handler(request):
         payload=json.loads(request.content);calls.append(payload)
         assert request.url.path=='/route'
-        assert payload['costing_options']['auto']=={'shortest':True,'disable_hierarchy_pruning':True,'exclude_unpaved':True,'exclude_ferries':True,'exclude_tolls':False}
+        assert payload['costing_options']['auto']=={'shortest':True,'disable_hierarchy_pruning':False,'exclude_unpaved':True,'exclude_ferries':True,'exclude_tolls':False}
         forward=payload['locations'][0]['lat']==32.08
         return httpx.Response(200,json=reply(1.234 if forward else 2.345))
     engine=ValhallaProvider(transport=httpx.MockTransport(handler))
