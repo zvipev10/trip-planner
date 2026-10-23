@@ -1,0 +1,6 @@
+# Valhalla evaluation alongside existing routing
+User authorized trial without losing capabilities. Keep production Routino, saved trips/routes, endpoints, arrival points, optimization, sharing and APK behavior intact. Scope: explicitly invoked, bounded Valhalla comparison tool and evaluation of failed five-point trip from server logs. No automatic fallback or policy relaxation. Demo service is for low-volume evaluation, never production app traffic.
+
+Review/plan: existing VM has 952 MiB total RAM, about 258 MiB available and 7.7 GiB disk free; avoid a second routing engine build/service on the live host during this trial. Official Valhalla demo permits fair-use evaluation. Use shortest=true plus disable_hierarchy_pruning=true, preserve user road policy, then explicitly test allowing unpaved roads. Compare route existence and snapped arrival; do not claim cross-stop optimization from an ordered-route test. A production provider must validate matrix/route consistency, endpoint snapping, 20-stop limits and distance semantics before activation.
+
+Acceptance: reproduce real failed point, compare strict and relaxed policies, retain original trip and live provider; save limitations and recommendation.
