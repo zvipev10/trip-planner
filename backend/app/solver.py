@@ -1,5 +1,8 @@
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
+from time import monotonic
+from .diagnostics import event
+
 from .provider import Matrix, PlanningError
 
 
@@ -35,7 +38,10 @@ def optimize(matrix: Matrix, budget_ms: int = 1000) -> list[int]:
     parameters.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     parameters.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
     parameters.time_limit.FromMilliseconds(budget_ms)
+    started = monotonic()
+    event("solver_started", budgetMs=budget_ms)
     solution = routing.SolveWithParameters(parameters)
+    event("solver_finished", status=routing.status(), found=solution is not None, budgetMs=budget_ms, elapsedMs=round((monotonic() - started) * 1000))
     if solution is None:
         raise PlanningError("no_route_found", "No complete route was found within the calculation budget. Check locations or retry.")
     result = []
