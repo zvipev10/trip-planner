@@ -64,7 +64,10 @@ def calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
     started = monotonic()
     event("started", mode="optimize" if reorder else "calculate", pointCount=len(request.points), sameEndpoints=(request.start.latitude == request.end.latitude and request.start.longitude == request.end.longitude))
     try:
-        event("request", provider=provider.name, payload=request.model_dump(mode="json", by_alias=True))
+        submitted_policy = request.road_policy
+        if callable(getattr(provider, "effective_policy", None)):
+            request = request.model_copy(update={"road_policy": provider.effective_policy(submitted_policy)})
+        event("request", provider=provider.name, payload=request.model_dump(mode="json", by_alias=True), submittedRoadPolicy=submitted_policy.model_dump(mode="json", by_alias=True))
         result = _calculate(request, provider, reorder)
         event("completed", elapsedMs=round((monotonic() - started) * 1000))
         return result

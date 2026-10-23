@@ -90,3 +90,28 @@ def test_native_polyline6_and_malformed_geometry():
     assert engine.route(POINTS,RoadPolicy()).coordinates==[(0.0,0.0),(0.000002,0.000001)]
     for bad in ['_','!','?']:
         with pytest.raises(ValueError):decode_polyline6(bad)
+
+
+def test_deployment_allows_unpaved_for_older_clients_and_logs_effective_policy(monkeypatch,caplog):
+    import logging
+    from app.main import calculate
+    from app.models import RouteRequest
+    seen=[]
+    def handler(request):
+        options=json.loads(request.content)['costing_options']['auto'];seen.append(options)
+        assert options['exclude_unpaved'] is False
+        assert options['exclude_ferries'] is True
+        return httpx.Response(200,json=reply())
+    engine=ValhallaProvider(transport=httpx.MockTransport(handler),allow_unpaved=True)
+    payload={'revision':0,'start':POINTS[0].model_dump(),'end':POINTS[1].model_dump(),'stops':[],'roadPolicy':{'avoidUnpaved':True}}
+    request=RouteRequest.model_validate(payload)
+    with caplog.at_level(logging.INFO,logger='uvicorn.error'):
+        result=calculate(request,engine,True)
+    assert result.provider=='valhalla' and len(seen)==3
+    assert request.road_policy.avoid_unpaved is True
+    events=[json.loads(r.message.split('planning_diagnostic ',1)[1]) for r in caplog.records if 'planning_diagnostic ' in r.message]
+    recorded=next(e for e in events if e['event']=='request')
+    assert recorded['payload']['roadPolicy']['avoidUnpaved'] is False
+    assert recorded['submittedRoadPolicy']['avoidUnpaved'] is True
+    monkeypatch.setenv('ROUTING_PROVIDER','valhalla');monkeypatch.setenv('VALHALLA_DISTANCE_VALIDATED','true');monkeypatch.setenv('VALHALLA_ALLOW_UNPAVED','true')
+    assert configured_provider().effective_policy(RoadPolicy()).avoid_unpaved is False
