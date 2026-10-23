@@ -60,6 +60,7 @@ private fun TripApp(model: TripViewModel) {
     val shared by model.pendingShare.collectAsStateWithLifecycle()
     val error by model.error.collectAsStateWithLifecycle()
     val saving by model.saving.collectAsStateWithLifecycle()
+    val shareStatus by model.shareStatus.collectAsStateWithLifecycle()
     val routing by model.routing.collectAsStateWithLifecycle()
     val routePlan by model.plan.collectAsStateWithLifecycle()
     val failedLocations by model.failedLocations.collectAsStateWithLifecycle()
@@ -98,14 +99,18 @@ private fun TripApp(model: TripViewModel) {
                 Text(error!!, color = MaterialTheme.colorScheme.error)
                 TextButton(onClick = { model.error.value = null }) { Text("Dismiss") }
             }
+            if (shareStatus != null) Text(shareStatus!!, style = MaterialTheme.typography.bodyMedium)
             if (shared != null) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Shared place", fontWeight = FontWeight.Bold)
-                        Text(if (selectedId == null) "Choose a trip below, or create a new trip." else "Add this place to ${trip?.title ?: "this trip"}.")
+                        Text(if (saving) "Adding shared location…" else if (selectedId == null) "Choose a trip to add this location automatically." else "Retry adding to ${trip?.title ?: "this trip"}, or edit if needed.")
                         Row {
-                            if (trip != null) TextButton(onClick = { importing = true }, enabled = !saving) { Text("Review place") }
-                            TextButton(onClick = model::clearShare) { Text("Dismiss share") }
+                            if (trip != null && error != null) {
+                                TextButton(onClick = { model.addSharedToTrip(trip.id) }, enabled = !saving) { Text("Retry add") }
+                                TextButton(onClick = { importing = true }, enabled = !saving) { Text("Edit shared place") }
+                            }
+                            TextButton(onClick = model::clearShare, enabled = !saving) { Text("Dismiss share") }
                         }
                     }
                 }
@@ -124,7 +129,7 @@ private fun TripApp(model: TripViewModel) {
                 if (trips.isEmpty()) Text("Your saved trips will appear here.")
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(trips, key = { it.trip.id }) { item ->
-                        OutlinedCard(Modifier.fillMaxWidth().clickable { model.select(item.trip.id) }) {
+                        OutlinedCard(Modifier.fillMaxWidth().clickable(enabled = !saving) { if (shared != null) model.addSharedToTrip(item.trip.id) else model.select(item.trip.id) }) {
                             Column(Modifier.padding(18.dp)) {
                                 Text(item.trip.title, style = MaterialTheme.typography.titleMedium)
                                 Text("${item.locationCount} locations")
