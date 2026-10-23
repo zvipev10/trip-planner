@@ -110,3 +110,11 @@ private fun message(failure: Exception): String = when (failure) {
     is IllegalArgumentException -> failure.message ?: "Check this place's coordinates."
     else -> "Could not read this map link. Retry extraction."
 }
+
+
+internal suspend fun sharedLocation(source: String, tripId: String, number: Int, id: String, remote: suspend (String) -> PlaceResolveResult): TripLocation {
+    val result = importPlace(source, remote)
+    return TripLocation(id = id, tripId = tripId,
+        name = result?.name ?: sharedPlaceName(source) ?: "Place $number",
+        address = source.trim(), latitude = result?.latitude, longitude = result?.longitude, source = source)
+}

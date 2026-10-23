@@ -19,6 +19,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
     val pendingShare = saved.getStateFlow<String?>("share", null)
     val error = MutableStateFlow<String?>(null)
     val saving = MutableStateFlow(false)
+    val shareStatus = MutableStateFlow<String?>(null)
     val trip = selectedId.flatMapLatest { id -> if (id == null) flowOf(null) else dao.trip(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val locations = selectedId.flatMapLatest { id -> if (id == null) flowOf(emptyList()) else dao.locations(id) }
@@ -99,7 +100,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
             val snapshot = dao.snapshot(id) ?: return@launch
             if (selectedId.value == id) {
                 plan.value = restoredPlan(snapshot.trip.routeJson, snapshot)
-                if (snapshot.trip.startId != null && snapshot.trip.endId != null) saved["screen"] = "endpoints"
+                if (pendingShare.value == null && snapshot.trip.startId != null && snapshot.trip.endId != null) saved["screen"] = "endpoints"
             }
         }
     }
@@ -110,8 +111,45 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
     }
     fun showEndpoints() { saved["screen"] = "endpoints" }
     fun showLocations() { saved["screen"] = "locations" }
-    fun acceptShare(text: String) { saved["share"] = text.take(16000) }
-    fun clearShare() { saved["share"] = null }
+    fun acceptShare(text: String) {
+        select(null)
+        shareStatus.value = null
+        saved["share"] = text.take(16000)
+        saved["shareImportId"] = UUID.randomUUID().toString()
+    }
+
+    fun addSharedToTrip(id: String) {
+        val source = pendingShare.value ?: return
+        if (saving.value) return
+        val importId = saved.get<String>("shareImportId") ?: UUID.randomUUID().toString().also { saved["shareImportId"] = it }
+        select(id)
+        saving.value = true
+        shareStatus.value = "Reading shared location…"
+        viewModelScope.launch {
+            try {
+                val snapshot = requireNotNull(dao.snapshot(id)) { "Trip no longer exists." }
+                val place = sharedLocation(source, id, snapshot.locations.size + 1, importId) {
+                    routeService().resolvePlace(PlaceResolveRequest(it))
+                }
+                // A newer incoming share must not be saved under an older choice.
+                if (pendingShare.value != source || saved.get<String>("shareImportId") != importId) return@launch
+                dao.saveLocation(place)
+                plan.value = null
+                if (pendingShare.value == source && saved.get<String>("shareImportId") == importId) {
+                    clearShare()
+                    showLocations()
+                    shareStatus.value = "Added ${place.name} to ${snapshot.trip.title}."
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                if (pendingShare.value == source && saved.get<String>("shareImportId") == importId) {
+                    error.value = "Could not add the shared location. Retry or edit its details; the share is still saved."
+                    shareStatus.value = null
+                }
+            } finally { saving.value = false }
+        }
+    }
+    fun clearShare() { saved["share"] = null; saved["shareImportId"] = null }
 
     private fun write(onSuccess: () -> Unit = {}, action: suspend () -> Unit) {
         if (saving.value) return
@@ -134,6 +172,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
             val id = UUID.randomUUID().toString()
             dao.insertTrip(Trip(id, title.trim()))
             select(id)
+            if (pendingShare.value != null) { saving.value = false; addSharedToTrip(id) }
         }
     }
 
