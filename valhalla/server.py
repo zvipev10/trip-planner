@@ -107,7 +107,8 @@ class EngineWorker:
             self.connection.send((action, body))
             if self.connection.poll(self.timeout):
                 return self.connection.recv()
-        except (EOFError, BrokenPipeError, OSError):
+        except (EOFError, BrokenPipeError, OSError) as error:
+            print(f"Valhalla worker connection failed: type={type(error).__name__} exitCode={self.process.exitcode if self.process is not None else None}", flush=True)
             self.close()
             return 503, {"error": "Routing worker unavailable"}
         self.close()

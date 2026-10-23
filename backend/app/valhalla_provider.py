@@ -39,7 +39,7 @@ def decode_polyline6(encoded):
 
 class ValhallaProvider:
     name = "valhalla"
-    diagnostic_profile = {"shortest": True, "hierarchyPruning": True}
+    diagnostic_profile = {"shortest": False, "useDistance": 1.0, "hierarchyPruning": True}
 
     def __init__(self, base_url="http://127.0.0.1:8002", transport=None, allow_unpaved=False):
         parsed = urlparse(base_url)
@@ -63,7 +63,7 @@ class ValhallaProvider:
         remaining = self.deadline - monotonic()
         if remaining <= 0:
             raise PlanningError("provider_timeout", "Routing exceeded its calculation budget.", 504)
-        payload = {"locations": [{"lat": p.latitude, "lon": p.longitude, "type": "break"} for p in (start, end)], "costing": "auto", "costing_options": {"auto": {"shortest": True, "disable_hierarchy_pruning": False, "exclude_unpaved": policy.avoid_unpaved, "exclude_ferries": policy.avoid_ferries, "exclude_tolls": policy.avoid_tolls}}, "units": "kilometers", "shape_format": "polyline6"}
+        payload = {"locations": [{"lat": p.latitude, "lon": p.longitude, "type": "break"} for p in (start, end)], "costing": "auto", "costing_options": {"auto": {"shortest": False, "use_distance": 1.0, "disable_hierarchy_pruning": False, "exclude_unpaved": policy.avoid_unpaved, "exclude_ferries": policy.avoid_ferries, "exclude_tolls": policy.avoid_tolls}}, "units": "kilometers", "shape_format": "polyline6"}
         try:
             response = client.post(self.base_url + "/route", json=payload, timeout=min(25, remaining))
         except httpx.TimeoutException:
@@ -81,6 +81,8 @@ class ValhallaProvider:
                 return None
             if response.status_code == 400 and code in {170, 171}:
                 raise PlanningError("location_not_routable", "A location has no nearby routable car road.", location_ids=[start.id, end.id])
+            if response.status_code == 503:
+                raise PlanningError("provider_unavailable", "Valhalla worker is restarting. Please retry.", 503)
             if response.status_code == 504:
                 raise PlanningError("provider_timeout", "Valhalla exceeded its per-route calculation budget.", 504)
             raise PlanningError("provider_failed", "Valhalla rejected this route calculation.", 502)
