@@ -11,8 +11,8 @@ android {
         applicationId = "com.tripplanner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.5.3"
+        versionCode = 10
+        versionName = "0.5.4"
     }
     buildFeatures { compose = true; buildConfig = true }
     val stableStore = System.getenv("TRIP_SIGNING_STORE")

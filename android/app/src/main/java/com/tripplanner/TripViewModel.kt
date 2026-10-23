@@ -94,6 +94,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
     }
 
     fun select(id: String?) {
+        shareStatus.value = null
         cancelRoute(); plan.value = null; failedLocations.value = emptyList(); error.value = null
         saved["tripId"] = id; saved["screen"] = "locations"
         if (id != null) viewModelScope.launch {
@@ -109,8 +110,8 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
         require((lat == null && lon == null) || (lat != null && lon != null && lat.isFinite() && lon.isFinite() && lat in -90.0..90.0 && lon in -180.0..180.0))
         write(onSuccess = { saving.value = false; calculateRoute() }) { dao.saveLocation(place.copy(arrivalLatitude = lat, arrivalLongitude = lon)) }
     }
-    fun showEndpoints() { saved["screen"] = "endpoints" }
-    fun showLocations() { saved["screen"] = "locations" }
+    fun showEndpoints() { shareStatus.value = null; saved["screen"] = "endpoints" }
+    fun showLocations() { shareStatus.value = null; saved["screen"] = "locations" }
     fun acceptShare(text: String) {
         select(null)
         shareStatus.value = null
@@ -124,7 +125,6 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
         val importId = saved.get<String>("shareImportId") ?: UUID.randomUUID().toString().also { saved["shareImportId"] = it }
         select(id)
         saving.value = true
-        shareStatus.value = "Reading shared location…"
         viewModelScope.launch {
             try {
                 val snapshot = requireNotNull(dao.snapshot(id)) { "Trip no longer exists." }
@@ -149,7 +149,8 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
             } finally { saving.value = false }
         }
     }
-    fun clearShare() { saved["share"] = null; saved["shareImportId"] = null }
+    fun clearShare() { shareStatus.value = null; saved["share"] = null; saved["shareImportId"] = null }
+    fun dismissShareStatus(message: String) { shareStatus.compareAndSet(message, null) }
 
     private fun write(onSuccess: () -> Unit = {}, action: suspend () -> Unit) {
         if (saving.value) return
