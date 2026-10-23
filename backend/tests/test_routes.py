@@ -41,7 +41,8 @@ def payload():
 
 
 def test_solver_matches_exhaustive_search():
-    route = optimize(MATRIX, 40)
+    # Correctness tests need scheduling headroom on the shared, swap-backed VM.
+    route = optimize(MATRIX, 200)
     best = min(cost(MATRIX, [0, *p, 3]) for p in permutations([1, 2]))
     assert route[0] == 0 and route[-1] == 3
     assert sorted(route) == list(range(4))
@@ -96,16 +97,16 @@ def test_stop_limit(client, payload):
 def test_unreachable_node():
     from app.provider import PlanningError
     with pytest.raises(PlanningError, match="No complete route"):
-        optimize([[0, None, 10], [None, 0, None], [10, None, 0]], 40)
+        optimize([[0, None, 10], [None, 0, None], [10, None, 0]], 200)
 
 
 def test_forbidden_arc_is_never_used():
     matrix = [[0, None, 1, 10], [1, 0, 1, 1], [1, 1, 0, 1], [1, 1, 1, 0]]
-    assert optimize(matrix, 40) == [0, 2, 1, 3]
+    assert optimize(matrix, 200) == [0, 2, 1, 3]
 
 
 def test_no_intermediate_stops():
-    assert optimize([[0, 5], [7, 0]], 40) == [0, 1]
+    assert optimize([[0, 5], [7, 0]], 200) == [0, 1]
 
 
 def test_profile_mismatch(client, payload):
