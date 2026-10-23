@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 TRIP_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-export ROUTING_PROVIDER=routino
+export ROUTING_PROVIDER="${ROUTING_PROVIDER:-routino}"
 export ROUTINO_BINARY="$TRIP_ROOT/routino/vendor/routino-3.4.4/src/router-slim"
 export ROUTINO_DATABASE="$TRIP_ROOT/routino/data/israel"
 export ROUTINO_PROFILES="$TRIP_ROOT/routino/profiles/distance-car.xml"
