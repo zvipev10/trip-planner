@@ -1,1 +1,1 @@
-Phase: implementation. Owner: Codex. Blockers: none. Next: code and QA checkpoint. Tracking: focused PR to be created; no existing issue. Review inputs and acceptance are in capability-brief.md.
+Phase: final QA and publishing. Owner: Codex. PR: https://github.com/zvipev10/trip-planner/pull/7. Web/browser/backend checks passed; Android CI pending. Next: merge after successful Android CI, deploy web and publish APK. Physical-phone acceptance remains manual. Artifacts: handoff-summary.md and checkpoint-001.md.
