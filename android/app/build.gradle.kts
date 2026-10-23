@@ -11,12 +11,25 @@ android {
         applicationId = "com.tripplanner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.5.1"
+        versionCode = 8
+        versionName = "0.5.2"
     }
     buildFeatures { compose = true; buildConfig = true }
+    val stableStore = System.getenv("TRIP_SIGNING_STORE")
+    val stablePassword = System.getenv("TRIP_SIGNING_PASSWORD")
+    if (!stableStore.isNullOrBlank()) {
+        require(!stablePassword.isNullOrBlank()) { "Stable signing password is required." }
+        signingConfigs.create("stable") {
+            storeFile = file(stableStore)
+            storePassword = stablePassword
+            keyAlias = "tripplanner"
+            keyPassword = stablePassword
+        }
+    }
     buildTypes {
-        debug { buildConfigField("String", "API_URL", "\"http://151.145.93.180/trip-planner/\"") }
+        debug {
+            if (!stableStore.isNullOrBlank()) signingConfig = signingConfigs.getByName("stable")
+            buildConfigField("String", "API_URL", "\"http://151.145.93.180/trip-planner/\"") }
         release { buildConfigField("String", "API_URL", "\"\"") }
     }
     compileOptions {
