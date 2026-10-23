@@ -4,6 +4,7 @@ import hashlib
 from importlib.metadata import version
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import multiprocessing
 from pathlib import Path
 
 MAX_BODY = 131072
@@ -48,14 +49,80 @@ def verify_data(root):
     return manifest
 
 
+def engine_worker(config, connection):
+    from valhalla import Actor, ValhallaError
+    actor = Actor(config)
+    connection.send((200, {"ready": True}))
+    while True:
+        action, body = connection.recv()
+        try:
+            result = getattr(actor, "matrix" if action == "sources_to_targets" else action)(body)
+            connection.send((200, json.loads(result) if isinstance(result, str) else result))
+        except ValhallaError as error:
+            connection.send((error.http_code, {"error_code": error.code, "error": error.message}))
+        except Exception:
+            connection.send((500, {"error": "Routing computation failed"}))
+
+
+class EngineWorker:
+    """One persistent native worker; terminate a calculation after its deadline."""
+    def __init__(self, config, timeout=10):
+        self.config, self.timeout = config, timeout
+        self.process = None
+        self.connection = None
+
+    def close(self):
+        if self.process is not None:
+            self.process.terminate()
+            self.process.join(2)
+            if self.process.is_alive():
+                self.process.kill()
+                self.process.join(2)
+            self.process.close()
+            self.process = None
+        if self.connection is not None:
+            self.connection.close()
+            self.connection = None
+
+    def start(self):
+        if self.process is not None and self.process.is_alive():
+            return
+        self.close()
+        context = multiprocessing.get_context("spawn")
+        self.connection, child = context.Pipe()
+        self.process = context.Process(target=engine_worker, args=(self.config, child), daemon=True)
+        self.process.start()
+        child.close()
+        if not self.connection.poll(15):
+            self.close()
+            raise RuntimeError("Valhalla startup exceeded its deadline")
+        status, _ = self.connection.recv()
+        if status != 200:
+            self.close()
+            raise RuntimeError("Valhalla startup failed")
+
+    def call(self, action, body):
+        self.start()
+        try:
+            self.connection.send((action, body))
+            if self.connection.poll(self.timeout):
+                return self.connection.recv()
+        except (EOFError, BrokenPipeError, OSError):
+            self.close()
+            return 503, {"error": "Routing worker unavailable"}
+        self.close()
+        print("Valhalla native computation exceeded deadline; worker terminated", flush=True)
+        return 504, {"error": "Routing computation exceeded its deadline"}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--port", type=int, default=8002)
     args = parser.parse_args()
-    from valhalla import Actor, ValhallaError
     manifest = verify_data(Path(args.data_dir))
-    actor = Actor(runtime_config(args.data_dir))
+    worker = EngineWorker(runtime_config(args.data_dir))
+    worker.start()
 
     class Handler(BaseHTTPRequestHandler):
         def setup(self):
@@ -73,7 +140,8 @@ def main():
         def do_GET(self):
             if self.path != "/status":
                 return self.send_json(404, {"error": "Not found"})
-            self.send_json(200, {"status": "ready", "engine": "valhalla", "version": "3.9.1", "concurrency": 1, "source": manifest["source"]})
+            ready = worker.process is not None and worker.process.is_alive()
+            self.send_json(200 if ready else 503, {"status": "ready" if ready else "worker_restart_pending", "engine": "valhalla", "version": "3.9.1", "concurrency": 1, "source": manifest["source"]})
 
         def do_POST(self):
             action = self.path.lstrip("/")
@@ -84,19 +152,22 @@ def main():
                 if not 0 < size <= MAX_BODY:
                     return self.send_json(413, {"error": "Invalid request size"})
                 body = validate_request(action, json.loads(self.rfile.read(size)))
-                result = getattr(actor, "matrix" if action == "sources_to_targets" else action)(body)
-                self.send_json(200, json.loads(result) if isinstance(result, str) else result)
-            except ValhallaError as error:
-                self.send_json(error.http_code, {"error_code": error.code, "error": error.message})
+                status, result = worker.call(action, body)
+                self.send_json(status, result)
+            except (BrokenPipeError, ConnectionResetError):
+                return
             except (ValueError, TypeError):
                 self.send_json(400, {"error": "Invalid routing request"})
             except Exception:
                 self.send_json(500, {"error": "Routing service failed"})
 
-    # HTTPServer is deliberately synchronous: Actor never receives concurrent calls.
+    # HTTPServer is synchronous; the sole worker never receives concurrent calls.
     server = HTTPServer(("127.0.0.1", args.port), Handler)
     print(f"Valhalla ready on 127.0.0.1:{args.port}; one request at a time", flush=True)
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        worker.close()
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ import os
 from .graphhopper import GraphHopperProvider, Profile
 from .models import RoadPolicy
 from .routino import RoutinoProvider
+from .valhalla_provider import ValhallaProvider
 from .provider import PlanningError, UnconfiguredProvider
 
 
@@ -15,6 +16,13 @@ def configured_provider():
             return RoutinoProvider(os.environ["ROUTINO_BINARY"], os.environ["ROUTINO_DATABASE"], os.environ["ROUTINO_PROFILES"], os.environ["ROUTINO_TRANSLATIONS"])
         except KeyError:
             raise PlanningError("provider_configuration_error", "Configure the Routino binary, database, profiles and translations paths.", 503) from None
+    if os.getenv("ROUTING_PROVIDER") == "valhalla":
+        if os.getenv("VALHALLA_DISTANCE_VALIDATED", "false").lower() != "true":
+            raise PlanningError("distance_profile_unvalidated", "Validate the local Valhalla distance profile before activation.", 503)
+        try:
+            return ValhallaProvider(os.getenv("VALHALLA_BASE_URL", "http://127.0.0.1:8002"))
+        except ValueError:
+            raise PlanningError("provider_configuration_error", "Valhalla must use the local engine endpoint.", 503) from None
     if os.getenv("ROUTING_PROVIDER") != "graphhopper":
         raise PlanningError("provider_configuration_error", "Unknown routing provider.", 503)
     # This records an external validation outcome, not automatic certification.

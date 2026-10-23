@@ -33,3 +33,10 @@ Rollback: stop/disable only `valhalla-israel`; existing Trip Planner/Routino and
 ## Attribution and licences
 
 Valhalla is MIT-licensed: https://github.com/valhalla/valhalla/blob/3.9.1/COPYING . OpenStreetMap data © OpenStreetMap contributors, ODbL: https://www.openstreetmap.org/copyright . Regional source: https://download.geofabrik.de/asia/israel-and-palestine.html . Timezone geometry: https://github.com/evansiroky/timezone-boundary-builder/releases/tag/2026d (ODbL); IANA timezone rules are included with the engine. Preserve these notices when redistributing the graph. Reproducible source/config/version are retained in build scripts and manifest.
+
+## Production adapter and hard computation deadline
+The backend Valhalla adapter uses sequential directed pair routes with the same shortest-distance profile for both the optimization matrix and route geometry. It retains only distances for matrix entries and recalculates selected geometries; identical coordinate pairs are reused. This avoids the native large-matrix workload that exceeded90s on this VM. No automatic Routino fallback or road-policy relaxation.
+
+The service now uses a single persistent native worker behind its synchronous listener. A10second per-call deadline terminates an overlong worker; the following request starts a new worker. Native timeout/recovery is checked with `check_worker.py`. Overall backend provider budget65s remains below web/Android request timeouts. HTTP engine errors and disconnected routes remain visible as failures.
+
+After validation, install `trip-planner-valhalla.conf` under `/etc/systemd/system/trip-planner.service.d/valhalla.conf`, reload systemd and restart both routing service and Trip Planner. The existing startup script honors explicit ROUTING_PROVIDER; its default remains Routino. To roll back, remove only this drop-in and restart Trip Planner; keep original Routino files. Trips, endpoints, arrival overrides, manual ordering, saved routes, link resolution and APK storage need no migration. Cached old routes remain visible until recalculated; new responses identify provider valhalla.
