@@ -26,3 +26,6 @@ ios/*.xcodeproj/
 *.xcresult/
 .DS_Store
 reports/web/*.png
+
+valhalla/data/
+valhalla/runs/

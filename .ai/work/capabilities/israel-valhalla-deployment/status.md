@@ -1,0 +1,1 @@
+Phase: graph preparation. Owner: Codex. Blockers: none yet. Next: build manifest and runtime service. Input: pyvalhalla3.9.1, Geofabrik dated regional extract. Existing app provider remains Routino. No parent issue; implementation PR will track deployment.

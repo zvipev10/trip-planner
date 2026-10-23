@@ -1,0 +1,25 @@
+[Unit]
+Description=Israel Valhalla single-request routing service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/trip-planner
+ExecStart=/home/ubuntu/valhalla-runtime/bin/python /home/ubuntu/trip-planner/valhalla/server.py --data-dir /home/ubuntu/valhalla-israel/current --port 8002
+Restart=on-failure
+RestartSec=10
+MemoryAccounting=true
+MemoryHigh=192M
+MemoryMax=256M
+MemorySwapMax=128M
+CPUQuota=100%
+TasksMax=32
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target
