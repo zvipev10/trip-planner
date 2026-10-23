@@ -40,13 +40,17 @@ def decode_polyline6(encoded):
 class ValhallaProvider:
     name = "valhalla"
 
-    def __init__(self, base_url="http://127.0.0.1:8002", transport=None):
+    def __init__(self, base_url="http://127.0.0.1:8002", transport=None, allow_unpaved=False):
         parsed = urlparse(base_url)
         if parsed.scheme != "http" or parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or parsed.username or parsed.password or parsed.query or parsed.fragment:
             raise ValueError("Valhalla must use the configured local service")
+        self.allow_unpaved = allow_unpaved
         self.base_url, self.transport = base_url.rstrip("/"), transport
         self.deadline = monotonic() + 65
         self.distances = {}
+
+    def effective_policy(self, policy):
+        return policy.model_copy(update={"avoid_unpaved": False}) if self.allow_unpaved else policy
 
     @staticmethod
     def _key(start, end, policy):
@@ -107,6 +111,7 @@ class ValhallaProvider:
         return httpx.Client(transport=self.transport, timeout=15, follow_redirects=False, trust_env=False)
 
     def distance_matrix(self, points: list[Point], policy: RoadPolicy) -> Matrix:
+        policy = self.effective_policy(policy)
         matrix = [[0 for _ in points] for _ in points]
         with self._client() as client:
             for i, start in enumerate(points):
@@ -122,6 +127,7 @@ class ValhallaProvider:
         return matrix
 
     def route(self, ordered_points: list[Point], policy: RoadPolicy) -> RoadRoute:
+        policy = self.effective_policy(policy)
         distances, coordinates = [], []
         with self._client() as client:
             for start, end in zip(ordered_points, ordered_points[1:]):

@@ -13,7 +13,7 @@ import {
   arrivalPoint,
   arrivalDistance,
   failedPlaces,
-} from "./core.mjs?v=0.4.2";
+} from "./core.mjs?v=0.5.3.4";
 const ARROW =
   '<svg class="icon" aria-hidden="true" viewBox="0 0 16 16"><path d="M3 13L13 3M4 3h9v9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
 const TRASH = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';

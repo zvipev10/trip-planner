@@ -135,7 +135,7 @@ export function requestFor(trip, manualOrder = null) {
     start: point(first, "start"),
     end: point(last, "end"),
     stops: ordered.map((p) => point(p)),
-    roadPolicy: { avoidTolls: false, avoidFerries: true, avoidUnpaved: true },
+    roadPolicy: { avoidTolls: false, avoidFerries: true, avoidUnpaved: false },
   };
 }
 export function validateReply(reply, request, manual = false) {

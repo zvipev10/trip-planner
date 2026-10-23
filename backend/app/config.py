@@ -20,7 +20,7 @@ def configured_provider():
         if os.getenv("VALHALLA_DISTANCE_VALIDATED", "false").lower() != "true":
             raise PlanningError("distance_profile_unvalidated", "Validate the local Valhalla distance profile before activation.", 503)
         try:
-            return ValhallaProvider(os.getenv("VALHALLA_BASE_URL", "http://127.0.0.1:8002"))
+            return ValhallaProvider(os.getenv("VALHALLA_BASE_URL", "http://127.0.0.1:8002"), allow_unpaved=os.getenv("VALHALLA_ALLOW_UNPAVED", "false").lower() == "true")
         except ValueError:
             raise PlanningError("provider_configuration_error", "Valhalla must use the local engine endpoint.", 503) from None
     if os.getenv("ROUTING_PROVIDER") != "graphhopper":

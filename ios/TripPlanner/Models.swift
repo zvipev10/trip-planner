@@ -46,7 +46,7 @@ struct RoutePoint: Codable {
 struct RoadPolicy: Encodable {
     let avoidTolls = false
     let avoidFerries = true
-    let avoidUnpaved = true
+    let avoidUnpaved = false
 }
 struct RouteRequest: Encodable {
     let revision: Int
