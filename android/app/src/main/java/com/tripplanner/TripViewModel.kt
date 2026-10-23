@@ -124,7 +124,7 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
         val importId = saved.get<String>("shareImportId") ?: UUID.randomUUID().toString().also { saved["shareImportId"] = it }
         select(id)
         saving.value = true
-        shareStatus.value = "Reading shared location…"
+        shareStatus.value = "Reading shared locationâ€¦"
         viewModelScope.launch {
             try {
                 val snapshot = requireNotNull(dao.snapshot(id)) { "Trip no longer exists." }
@@ -164,6 +164,10 @@ class TripViewModel(application: Application, private val saved: SavedStateHandl
             catch (_: Exception) { error.value = "Could not save changes. Please try again." }
             finally { saving.value = false }
         }
+    }
+
+    fun deleteTrip(id: String, onDeleted: () -> Unit) {
+        write(onSuccess = { if (selectedId.value == id) select(null); onDeleted() }) { dao.deleteTrip(id) }
     }
 
     fun createTrip(title: String, onSaved: () -> Unit = {}) {

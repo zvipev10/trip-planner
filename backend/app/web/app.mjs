@@ -16,6 +16,7 @@ import {
 } from "./core.mjs?v=0.4.2";
 const ARROW =
   '<svg class="icon" aria-hidden="true" viewBox="0 0 16 16"><path d="M3 13L13 3M4 3h9v9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+const TRASH = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const KEY = "trip-planner.web.v1",
   app = document.querySelector("#app"),
   dialog = document.querySelector("#editor"),
@@ -92,7 +93,7 @@ function storageTools() {
   return `<div class="storage"><button class="text-button" data-action="export">Export backup ↗</button><button class="text-button" data-action="import">Import backup ↗</button><input type="file" accept="application/json,.json" id="import-file" hidden></div>`;
 }
 function home() {
-  return `<section class="intro"><div><span class="eyebrow">MAKE ROOM FOR THE JOURNEY</span><h1>A better order<br>to your day.</h1><p>Gather your places. Find a shorter drive.<br>Keep the freedom to change your mind.</p></div><aside><strong>One trip.<br>Every stop.</strong>Your places stay together, from the first idea to the final route.</aside></section><div class="grid"><section class="panel create-panel"><span class="eyebrow">START SOMETHING</span><h2>Where are you headed?</h2><p>Give your trip a title, then start collecting places.</p><form id="create-form"><label>Trip title<input name="title" required maxlength="120" placeholder="A day around Jerusalem" autocomplete="off"></label><button>Create a trip ↗</button></form></section><section><div class="section-head"><h2>Your trips</h2><span class="count">${trips.length} saved</span></div>${trips.length ? trips.map((t) => `<button class="trip-card" data-trip="${esc(t.id)}"><h3 dir="auto">${esc(t.title)}</h3><small>${t.places.length} locations · ${t.places.filter((p) => !resolved(p)).length} need coordinates</small><span class="arrow" aria-hidden="true">↗</span></button>`).join("") : `<div class="empty"><span class="empty-icon" aria-hidden="true">⌁</span><strong>Your next trip starts here.</strong><br>Create a trip and add the places you want to visit.<br><button class="text-button" data-action="sample">Try a sample Tel Aviv trip ↗</button></div>`}${storageTools()}<p class="footnote">Trips stay in this browser on this device. Export a backup to move them elsewhere. On iPhone, paste shared links into a location’s address field.</p></section></div>`;
+  return `<section class="intro"><div><span class="eyebrow">MAKE ROOM FOR THE JOURNEY</span><h1>A better order<br>to your day.</h1><p>Gather your places. Find a shorter drive.<br>Keep the freedom to change your mind.</p></div><aside><strong>One trip.<br>Every stop.</strong>Your places stay together, from the first idea to the final route.</aside></section><div class="grid"><section class="panel create-panel"><span class="eyebrow">START SOMETHING</span><h2>Where are you headed?</h2><p>Give your trip a title, then start collecting places.</p><form id="create-form"><label>Trip title<input name="title" required maxlength="120" placeholder="A day around Jerusalem" autocomplete="off"></label><button>Create a trip ↗</button></form></section><section><div class="section-head"><h2>Your trips</h2><span class="count">${trips.length} saved</span></div>${trips.length ? trips.map((t) => `<article class="trip-row"><button class="trip-card" data-trip="${esc(t.id)}"><h3 dir="auto">${esc(t.title)}</h3><small>${t.places.length} locations · ${t.places.filter((p) => !resolved(p)).length} need coordinates</small><span class="arrow" aria-hidden="true">↗</span></button><button class="trip-delete" data-action="delete-trip" data-delete-trip="${esc(t.id)}" aria-label="Delete ${esc(t.title)}" title="Delete trip">${TRASH}</button></article>`).join("") : `<div class="empty"><span class="empty-icon" aria-hidden="true">⌁</span><strong>Your next trip starts here.</strong><br>Create a trip and add the places you want to visit.<br><button class="text-button" data-action="sample">Try a sample Tel Aviv trip ↗</button></div>`}${storageTools()}<p class="footnote">Trips stay in this browser on this device. Export a backup to move them elsewhere. On iPhone, paste shared links into a location’s address field.</p></section></div>`;
 }
 function placeList(t) {
   return `<div class="editor-layout"><section class="panel"><div class="section-head"><h2>Your places</h2><button data-action="add">+ Add location</button></div>${t.places.length ? t.places.map((p, i) => `<article class="location"><span class="number">${i + 1}</span><div class="place-copy"><h3 dir="auto">${esc(p.name)}</h3><p dir="auto">${esc(p.address || `${p.latitude}, ${p.longitude}`)}</p><span class="badge ${resolved(p) ? "" : "pending"}">${resolved(p) ? "Coordinates confirmed" : "Needs coordinates"}</span>${p.id === t.startId ? '<span class="badge">Start</span>' : ""}${p.id === t.endId ? '<span class="badge">End</span>' : ""}</div><div class="actions"><button class="icon-button" data-edit="${esc(p.id)}" aria-label="Edit ${esc(p.name)}">Edit</button><button class="icon-button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button></div></article>`).join("") : `<div class="empty">A place for every stop.<br>Add your first location to get started.</div>`}</section><aside><div class="tip"><h3>Collect now. Plan later.</h3><p>Paste a Google Maps or Waze link, an address, or coordinates. Places save automatically when you tap Save.</p><p>Map links fill the name and coordinates automatically when available. You can edit them before saving.</p></div><button class="wide" data-view="plan" ${t.places.length ? "" : "disabled"}>${t.startId && t.endId ? "View saved route →" : "Choose start and end →"}</button><p class="footnote">Up to 20 intermediate stops, with separate start and end points.</p></aside></div>`;
@@ -126,7 +127,7 @@ function render() {
   const t = active();
   app.innerHTML = (
     t
-      ? `<button class="text-button back" data-action="home">← All trips</button><div class="trip-heading"><div><span class="eyebrow">YOUR TRIP</span><h1 dir="auto">${esc(t.title)}</h1><p>${t.places.length} places, one plan.</p></div><button class="text-button danger" data-action="delete-trip">Delete trip</button></div><nav class="steps" aria-label="Trip planning"><button class="step ${view === "places" ? "active" : ""}" data-view="places"><span>1</span>Collect places</button><button class="step ${view === "plan" ? "active" : ""}" data-view="plan" ${t.places.length ? "" : "disabled"}><span>2</span>Plan your route</button></nav>${view === "plan" ? planScreen(t) : placeList(t)}`
+      ? `<button class="text-button back" data-action="home">← All trips</button><div class="trip-heading"><div><span class="eyebrow">YOUR TRIP</span><h1 dir="auto">${esc(t.title)}</h1><p>${t.places.length} places, one plan.</p></div><button class="trip-delete" data-action="delete-trip" aria-label="Delete ${esc(t.title)}" title="Delete trip">${TRASH}</button></div><nav class="steps" aria-label="Trip planning"><button class="step ${view === "places" ? "active" : ""}" data-view="places"><span>1</span>Collect places</button><button class="step ${view === "plan" ? "active" : ""}" data-view="plan" ${t.places.length ? "" : "disabled"}><span>2</span>Plan your route</button></nav>${view === "plan" ? planScreen(t) : placeList(t)}`
       : home()
   ).replaceAll("↗", ARROW);
   if (!t) selected = null;
@@ -370,14 +371,15 @@ app.addEventListener("click", (e) => {
         document.querySelector("#import-file").click();
         break;
       case "delete-trip":
-        if (confirm("Delete this trip and its saved locations?")) {
-          if (busy?.id === selected) {
-            busy.controller.abort();
-            busy = null;
-          }
-          commit(trips.filter((t) => t.id !== selected));
-          selected = null;
+        { const id = button.dataset.deleteTrip || selected;
+          const target = trips.find((t) => t.id === id);
+          if (!target || !confirm(`Delete “${target.title}” and all its locations and saved route? This cannot be undone.`)) break;
+          commit(trips.filter((t) => t.id !== id));
+          if (busy?.id === id) { busy.controller.abort(); busy = null; }
+          if (selected === id) selected = null;
+          lastFailure = null;
           render();
+          notice("Trip deleted.");
         }
         break;
       case "sample": {

@@ -1,0 +1,1 @@
+Phase: final QA and publishing. Owner: Codex. PR: https://github.com/zvipev10/trip-planner/pull/7. Web/browser/backend checks passed; Android CI pending. Next: merge after successful Android CI, deploy web and publish APK. Physical-phone acceptance remains manual. Artifacts: handoff-summary.md and checkpoint-001.md.

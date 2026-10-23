@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,6 +67,7 @@ private fun TripApp(model: TripViewModel) {
     val failedLocations by model.failedLocations.collectAsStateWithLifecycle()
     val trip = activeTrip?.takeIf { it.id == selectedId }
     val locations = allLocations.filter { it.tripId == selectedId }
+    var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable(selectedId) { mutableStateOf<String?>(null) }
     var adding by rememberSaveable(selectedId) { mutableStateOf(false) }
@@ -104,7 +106,7 @@ private fun TripApp(model: TripViewModel) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Shared place", fontWeight = FontWeight.Bold)
-                        Text(if (saving) "Adding shared location�" else if (selectedId == null) "Choose a trip to add this location automatically." else "Retry adding to ${trip?.title ?: "this trip"}, or edit if needed.")
+                        Text(if (saving) "Adding shared location…" else if (selectedId == null) "Choose a trip to add this location automatically." else "Retry adding to ${trip?.title ?: "this trip"}, or edit if needed.")
                         Row {
                             if (trip != null && error != null) {
                                 TextButton(onClick = { model.addSharedToTrip(trip.id) }, enabled = !saving) { Text("Retry add") }
@@ -130,9 +132,14 @@ private fun TripApp(model: TripViewModel) {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(trips, key = { it.trip.id }) { item ->
                         OutlinedCard(Modifier.fillMaxWidth().clickable(enabled = !saving) { if (shared != null) model.addSharedToTrip(item.trip.id) else model.select(item.trip.id) }) {
-                            Column(Modifier.padding(18.dp)) {
-                                Text(item.trip.title, style = MaterialTheme.typography.titleMedium)
-                                Text("${item.locationCount} locations")
+                            Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                                    Text(item.trip.title, style = MaterialTheme.typography.titleMedium)
+                                    Text("${item.locationCount} locations")
+                                }
+                                IconButton(onClick = { deletingId = item.trip.id }, enabled = !saving) {
+                                    Icon(painterResource(R.drawable.ic_delete), contentDescription = "Delete ${item.trip.title}", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
@@ -233,6 +240,19 @@ private fun TripApp(model: TripViewModel) {
                 }
             }
         }
+    }
+    trips.find { it.trip.id == deletingId }?.let { target ->
+        AlertDialog(
+            onDismissRequest = { if (!saving) deletingId = null },
+            title = { Text("Delete trip?") },
+            text = { Text("Delete “${target.trip.title}” and all its locations and saved route? This cannot be undone.") },
+            confirmButton = {
+                TextButton(enabled = !saving, onClick = { model.deleteTrip(target.trip.id) { deletingId = null } }) {
+                    Text("Delete trip", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(enabled = !saving, onClick = { deletingId = null }) { Text("Cancel") } },
+        )
     }
     if (creating) {
         var title by rememberSaveable { mutableStateOf("") }
