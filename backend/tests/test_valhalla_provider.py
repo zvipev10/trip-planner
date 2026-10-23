@@ -107,11 +107,12 @@ def test_deployment_allows_unpaved_for_older_clients_and_logs_effective_policy(m
     request=RouteRequest.model_validate(payload)
     with caplog.at_level(logging.INFO,logger='uvicorn.error'):
         result=calculate(request,engine,True)
-    assert result.provider=='valhalla' and len(seen)==3
+    assert result.provider=='valhalla' and len(seen)==1
     assert request.road_policy.avoid_unpaved is True
     events=[json.loads(r.message.split('planning_diagnostic ',1)[1]) for r in caplog.records if 'planning_diagnostic ' in r.message]
     recorded=next(e for e in events if e['event']=='request')
     assert recorded['payload']['roadPolicy']['avoidUnpaved'] is False
     assert recorded['submittedRoadPolicy']['avoidUnpaved'] is True
+    assert recorded['routingProfile']=={'shortest':True,'hierarchyPruning':True}
     monkeypatch.setenv('ROUTING_PROVIDER','valhalla');monkeypatch.setenv('VALHALLA_DISTANCE_VALIDATED','true');monkeypatch.setenv('VALHALLA_ALLOW_UNPAVED','true')
     assert configured_provider().effective_policy(RoadPolicy()).avoid_unpaved is False
