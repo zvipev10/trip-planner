@@ -83,7 +83,8 @@ def calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
 
 def _calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
     points = request.points
-    if reorder:
+    needs_search = reorder and len(request.stops) > 1
+    if needs_search:
         started = monotonic()
         event("matrix_started")
         matrix = provider.distance_matrix(points, request.road_policy)
@@ -101,7 +102,7 @@ def _calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
         raise PlanningError("invalid_provider_response", "Routing provider returned invalid legs.", 502)
     if len(road.coordinates) < 2:
         raise PlanningError("invalid_provider_response", "Routing provider returned missing geometry.", 502)
-    if reorder:
+    if needs_search:
         expected = [matrix[a][b] for a, b in zip(order, order[1:])]
         # Permit integer-meter rounding, never silently display a different profile.
         if any(a is None or abs(a - b) > max(2, a * 0.001) for a, b in zip(expected, road.leg_distances)):
