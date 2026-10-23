@@ -7,3 +7,5 @@ Changed files: Android DAO, ViewModel, trip list and vector icon; APK version; w
 
 ## Web list layout follow-up
 User requested saved count below Your trips and removal of the whole empty-state panel. Changed home markup, scoped heading CSS and cache URLs only. Confirmed at 390px: 0 saved below/left-aligned with title, no empty panel/sample prompt, backup controls retained; adding a trip still renders its card and 1 saved. Screenshot inspected; JS syntax and diff check passed. No storage/native/API changes or additional durable docs needed. Next: publish and deploy web.
+
+Saved-count alignment correction: removed shared flex heading layout from trip-list title; title/count now use block elements with identical full width, zero inline spacing and explicit left alignment. Refreshed CSS/JS cache URLs. Mobile browser coordinate assertion verifies identical left edges; syntax/diff checks pass. Next: publish/deploy. No storage changes.

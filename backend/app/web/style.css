@@ -769,5 +769,6 @@ dialog label {
 .trip-delete:hover { color: #a33434; background: #faeeee; }
 .trip-delete:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-.trips-heading { flex-direction: column; align-items: flex-start; gap: 4px; }
-.trips-heading h2 { margin: 0; }
+.trips-heading { display: block; margin-bottom: 18px; text-align: left; }
+.trips-heading h2, .trips-heading .count { display: block; width: 100%; margin: 0; padding: 0; text-align: left; }
+.trips-heading .count { margin-top: 4px; }
