@@ -8,6 +8,35 @@ from .models import Point, RoadPolicy
 from .provider import Matrix, PlanningError, RoadRoute
 
 
+def decode_polyline6(encoded):
+    if not isinstance(encoded, str) or len(encoded) > 1000000:
+        raise ValueError()
+    index, latitude, longitude = 0, 0, 0
+    coordinates = []
+    while index < len(encoded):
+        delta = []
+        for _ in range(2):
+            value, shift = 0, 0
+            while True:
+                if index >= len(encoded) or shift > 30:
+                    raise ValueError()
+                chunk = ord(encoded[index]) - 63
+                index += 1
+                if not 0 <= chunk <= 63:
+                    raise ValueError()
+                value |= (chunk & 31) << shift
+                shift += 5
+                if chunk < 32:
+                    break
+            delta.append(~(value >> 1) if value & 1 else value >> 1)
+        latitude += delta[0]
+        longitude += delta[1]
+        coordinates.append((longitude / 1000000, latitude / 1000000))
+        if len(coordinates) > 50000:
+            raise ValueError()
+    return coordinates
+
+
 class ValhallaProvider:
     name = "valhalla"
 
@@ -29,7 +58,7 @@ class ValhallaProvider:
         remaining = self.deadline - monotonic()
         if remaining <= 0:
             raise PlanningError("provider_timeout", "Routing exceeded its calculation budget.", 504)
-        payload = {"locations": [{"lat": p.latitude, "lon": p.longitude, "type": "break"} for p in (start, end)], "costing": "auto", "costing_options": {"auto": {"shortest": True, "disable_hierarchy_pruning": True, "exclude_unpaved": policy.avoid_unpaved, "exclude_ferries": policy.avoid_ferries, "exclude_tolls": policy.avoid_tolls}}, "units": "kilometers", "shape_format": "geojson"}
+        payload = {"locations": [{"lat": p.latitude, "lon": p.longitude, "type": "break"} for p in (start, end)], "costing": "auto", "costing_options": {"auto": {"shortest": True, "disable_hierarchy_pruning": True, "exclude_unpaved": policy.avoid_unpaved, "exclude_ferries": policy.avoid_ferries, "exclude_tolls": policy.avoid_tolls}}, "units": "kilometers", "shape_format": "polyline6"}
         try:
             response = client.post(self.base_url + "/route", json=payload, timeout=min(15, remaining))
         except httpx.TimeoutException:
@@ -59,8 +88,13 @@ class ValhallaProvider:
             shape = leg["shape"]
             if isinstance(distance, bool) or not isinstance(distance, (int, float)) or not math.isfinite(distance) or not 0 <= distance <= 10**9:
                 raise ValueError()
-            coordinates = shape["coordinates"]
-            if shape["type"] != "LineString" or len(coordinates) < 2:
+            if isinstance(shape, str):
+                coordinates = decode_polyline6(shape)
+            else:
+                if shape["type"] != "LineString":
+                    raise ValueError()
+                coordinates = shape["coordinates"]
+            if not 2 <= len(coordinates) <= 50000:
                 raise ValueError()
             for coordinate in coordinates:
                 if len(coordinate) != 2 or any(isinstance(c, bool) or not isinstance(c, (int, float)) or not math.isfinite(c) for c in coordinate) or not (-180 <= coordinate[0] <= 180 and -90 <= coordinate[1] <= 90):

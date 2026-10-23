@@ -80,3 +80,13 @@ def test_configuration_validation_gate_and_local_only(monkeypatch):
     monkeypatch.setenv('VALHALLA_BASE_URL','http://remote.example')
     with pytest.raises(PlanningError) as error:configured_provider()
     assert error.value.code=='provider_configuration_error'
+
+
+def test_native_polyline6_and_malformed_geometry():
+    from app.valhalla_provider import decode_polyline6
+    assert decode_polyline6('??AC')==[(0.0,0.0),(0.000002,0.000001)]
+    data=reply();data['trip']['legs'][0]['shape']='??AC'
+    engine=ValhallaProvider(transport=httpx.MockTransport(lambda _:httpx.Response(200,json=data)))
+    assert engine.route(POINTS,RoadPolicy()).coordinates==[(0.0,0.0),(0.000002,0.000001)]
+    for bad in ['_','!','?']:
+        with pytest.raises(ValueError):decode_polyline6(bad)
