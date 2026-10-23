@@ -76,10 +76,20 @@ private fun TripApp(model: TripViewModel) {
     var editEndpoints by rememberSaveable(selectedId) { mutableStateOf(false) }
     var endpointPicker by rememberSaveable(selectedId) { mutableStateOf<String?>(null) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(shareStatus) {
+        val message = shareStatus ?: return@LaunchedEffect
+        try {
+            snackbarHostState.showSnackbar(message, withDismissAction = true, duration = SnackbarDuration.Short)
+        } finally {
+            model.dismissShareStatus(message)
+        }
+    }
+
     BackHandler(enabled = selectedId != null && !adding && editingId == null && !importing && endpointPicker == null) {
         if (screen == "endpoints") model.showLocations() else model.select(null)
     }
-    Scaffold(topBar = {
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
         TopAppBar(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -101,7 +111,6 @@ private fun TripApp(model: TripViewModel) {
                 Text(error!!, color = MaterialTheme.colorScheme.error)
                 TextButton(onClick = { model.error.value = null }) { Text("Dismiss") }
             }
-            if (shareStatus != null) Text(shareStatus!!, style = MaterialTheme.typography.bodyMedium)
             if (shared != null) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
