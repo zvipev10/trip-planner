@@ -1,0 +1,2 @@
+# Execution plan
+Implement the reviewed approach in capability-brief.md. Android uses vector drawable and Material IconButton plus AlertDialog; Room deletes parent by ID with existing foreign-key CASCADE. Web uses sibling buttons (never nested), accessible names, CSS focus/hover states and existing confirmation/storage handling. Increment APK to 0.5.3/code9. Run web tests, browser cancel/confirm/reload checks, Android CI unit/build/lint. Publish a focused PR and record limitations.
