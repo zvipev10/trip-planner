@@ -67,7 +67,7 @@ def calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
         submitted_policy = request.road_policy
         if callable(getattr(provider, "effective_policy", None)):
             request = request.model_copy(update={"road_policy": provider.effective_policy(submitted_policy)})
-        event("request", provider=provider.name, payload=request.model_dump(mode="json", by_alias=True), submittedRoadPolicy=submitted_policy.model_dump(mode="json", by_alias=True))
+        event("request", provider=provider.name, routingProfile=getattr(provider, "diagnostic_profile", None), payload=request.model_dump(mode="json", by_alias=True), submittedRoadPolicy=submitted_policy.model_dump(mode="json", by_alias=True))
         result = _calculate(request, provider, reorder)
         event("completed", elapsedMs=round((monotonic() - started) * 1000))
         return result
@@ -83,7 +83,8 @@ def calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
 
 def _calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
     points = request.points
-    if reorder:
+    needs_search = reorder and len(request.stops) > 1
+    if needs_search:
         started = monotonic()
         event("matrix_started")
         matrix = provider.distance_matrix(points, request.road_policy)
@@ -101,7 +102,7 @@ def _calculate(request: RouteRequest, provider: RoutingProvider, reorder: bool):
         raise PlanningError("invalid_provider_response", "Routing provider returned invalid legs.", 502)
     if len(road.coordinates) < 2:
         raise PlanningError("invalid_provider_response", "Routing provider returned missing geometry.", 502)
-    if reorder:
+    if needs_search:
         expected = [matrix[a][b] for a, b in zip(order, order[1:])]
         # Permit integer-meter rounding, never silently display a different profile.
         if any(a is None or abs(a - b) > max(2, a * 0.001) for a, b in zip(expected, road.leg_distances)):

@@ -66,7 +66,7 @@ def engine_worker(config, connection):
 
 class EngineWorker:
     """One persistent native worker; terminate a calculation after its deadline."""
-    def __init__(self, config, timeout=10):
+    def __init__(self, config, timeout=20):
         self.config, self.timeout = config, timeout
         self.process = None
         self.connection = None
@@ -107,7 +107,8 @@ class EngineWorker:
             self.connection.send((action, body))
             if self.connection.poll(self.timeout):
                 return self.connection.recv()
-        except (EOFError, BrokenPipeError, OSError):
+        except (EOFError, BrokenPipeError, OSError) as error:
+            print(f"Valhalla worker connection failed: type={type(error).__name__} exitCode={self.process.exitcode if self.process is not None else None}", flush=True)
             self.close()
             return 503, {"error": "Routing worker unavailable"}
         self.close()

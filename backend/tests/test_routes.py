@@ -186,3 +186,18 @@ def test_planning_diagnostics_record_disconnected_stops(client, payload, caplog)
     assert next(e for e in events if e["event"] == "failed")["code"] == "no_route_found"
     assert len({e["requestId"] for e in events}) == 1
     assert request_id.get() == "unassigned"
+
+
+@pytest.mark.parametrize('stop_count,expected_distance',[(0,100),(1,50)])
+def test_fixed_order_optimize_skips_unused_matrix(client,payload,stop_count,expected_distance):
+    class FixedOrder(FixtureProvider):
+        def distance_matrix(self,points,policy):
+            pytest.fail('No ordering decision exists with zero or one intermediate stop')
+    app.dependency_overrides[get_provider]=FixedOrder
+    payload['stops']=payload['stops'][:stop_count]
+    response=client.post('/v1/routes/optimize',json=payload)
+    assert response.status_code==200
+    result=response.json()
+    assert result['status']=='optimized'
+    assert result['orderedStopIds']==[p['id'] for p in payload['stops']]
+    assert result['distanceMeters']==expected_distance

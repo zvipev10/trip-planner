@@ -1,4 +1,4 @@
-"""Valhalla shortest-distance adapter with bounded directed pair evaluation."""
+"""Valhalla distance-first adapter with bounded hierarchy-pruned pair evaluation."""
 import math
 from time import monotonic
 from urllib.parse import urlparse
@@ -39,6 +39,7 @@ def decode_polyline6(encoded):
 
 class ValhallaProvider:
     name = "valhalla"
+    diagnostic_profile = {"shortest": False, "useDistance": 1.0, "hierarchyPruning": True}
 
     def __init__(self, base_url="http://127.0.0.1:8002", transport=None, allow_unpaved=False):
         parsed = urlparse(base_url)
@@ -46,7 +47,7 @@ class ValhallaProvider:
             raise ValueError("Valhalla must use the configured local service")
         self.allow_unpaved = allow_unpaved
         self.base_url, self.transport = base_url.rstrip("/"), transport
-        self.deadline = monotonic() + 65
+        self.deadline = monotonic() + 75
         self.distances = {}
 
     def effective_policy(self, policy):
@@ -62,9 +63,9 @@ class ValhallaProvider:
         remaining = self.deadline - monotonic()
         if remaining <= 0:
             raise PlanningError("provider_timeout", "Routing exceeded its calculation budget.", 504)
-        payload = {"locations": [{"lat": p.latitude, "lon": p.longitude, "type": "break"} for p in (start, end)], "costing": "auto", "costing_options": {"auto": {"shortest": True, "disable_hierarchy_pruning": True, "exclude_unpaved": policy.avoid_unpaved, "exclude_ferries": policy.avoid_ferries, "exclude_tolls": policy.avoid_tolls}}, "units": "kilometers", "shape_format": "polyline6"}
+        payload = {"locations": [{"lat": p.latitude, "lon": p.longitude, "type": "break"} for p in (start, end)], "costing": "auto", "costing_options": {"auto": {"shortest": False, "use_distance": 1.0, "disable_hierarchy_pruning": False, "exclude_unpaved": policy.avoid_unpaved, "exclude_ferries": policy.avoid_ferries, "exclude_tolls": policy.avoid_tolls}}, "units": "kilometers", "shape_format": "polyline6"}
         try:
-            response = client.post(self.base_url + "/route", json=payload, timeout=min(15, remaining))
+            response = client.post(self.base_url + "/route", json=payload, timeout=min(25, remaining))
         except httpx.TimeoutException:
             raise PlanningError("provider_timeout", "Valhalla timed out. Try fewer or closer stops.", 504) from None
         except httpx.HTTPError:
@@ -80,6 +81,8 @@ class ValhallaProvider:
                 return None
             if response.status_code == 400 and code in {170, 171}:
                 raise PlanningError("location_not_routable", "A location has no nearby routable car road.", location_ids=[start.id, end.id])
+            if response.status_code == 503:
+                raise PlanningError("provider_unavailable", "Valhalla worker is restarting. Please retry.", 503)
             if response.status_code == 504:
                 raise PlanningError("provider_timeout", "Valhalla exceeded its per-route calculation budget.", 504)
             raise PlanningError("provider_failed", "Valhalla rejected this route calculation.", 502)
@@ -108,7 +111,7 @@ class ValhallaProvider:
             raise PlanningError("invalid_provider_response", "Valhalla returned invalid distance or geometry.", 502) from None
 
     def _client(self):
-        return httpx.Client(transport=self.transport, timeout=15, follow_redirects=False, trust_env=False)
+        return httpx.Client(transport=self.transport, timeout=25, follow_redirects=False, trust_env=False)
 
     def distance_matrix(self, points: list[Point], policy: RoadPolicy) -> Matrix:
         policy = self.effective_policy(policy)
