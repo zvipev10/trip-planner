@@ -145,7 +145,7 @@ def test_invalid_provider_geometry_is_502(client, payload):
     assert response.json()["error"]["code"] == "invalid_provider_response"
 
 
-def test_planning_diagnostics_correlate_stages_without_locations(client, payload, caplog):
+def test_planning_diagnostics_correlate_stages_with_replay_payload(client, payload, caplog):
     import json
     from app.diagnostics import request_id
     with caplog.at_level("INFO", logger="uvicorn.error"):
@@ -157,7 +157,11 @@ def test_planning_diagnostics_correlate_stages_without_locations(client, payload
     assert next(e for e in events if e["event"] == "solver_finished")["found"] is True
     assert next(e for e in events if e["event"] == "matrix_ready")["unreachablePairs"] == []
     assert request_id.get() == "unassigned"
-    assert "32.08" not in caplog.text and "34.78" not in caplog.text
+    recorded = next(e for e in events if e["event"] == "request")
+    from app.models import RouteRequest
+    assert RouteRequest.model_validate(recorded["payload"]).model_dump(by_alias=True) == RouteRequest.model_validate(payload).model_dump(by_alias=True)
+    assert recorded["provider"] == "synthetic-test-fixture"
+    assert next(e for e in events if e["event"] == "matrix_ready")["distances"] == MATRIX
 
 
 def test_planning_diagnostics_record_disconnected_stops(client, payload, caplog):
@@ -175,6 +179,9 @@ def test_planning_diagnostics_record_disconnected_stops(client, payload, caplog)
     assert matrix["noOutgoing"] == [0, 1, 2]
     assert matrix["noIncoming"] == [1, 2, 3]
     assert [0, 1] in matrix["unreachablePairs"]
+    recorded = next(e for e in events if e["event"] == "request")
+    assert recorded["payload"]["stops"] == payload["stops"]
+    assert recorded["payload"]["start"] == payload["start"]
     assert next(e for e in events if e["event"] == "failed")["code"] == "no_route_found"
     assert len({e["requestId"] for e in events}) == 1
     assert request_id.get() == "unassigned"

@@ -1,5 +1,6 @@
 """Low-memory subprocess adapter for the bundled distance-car Routino profile."""
 import math
+import hashlib
 import re
 from pathlib import Path
 import subprocess
@@ -49,6 +50,7 @@ class RoutinoProvider:
         finally:
             _ROUTER_LOCK.release()
         if result.returncode:
+            event("routino_leg_failed", start=start.model_dump(mode="json"), end=end.model_dump(mode="json"), command=command, returnCode=result.returncode, stderr=result.stderr[:4096])
             # These known messages mean a legal route cannot be found. Other
             # failures (e.g. missing graph files) are configuration/service errors.
             unreachable = ("Cannot find initial section of route", "Cannot find final section of route", "Cannot find super-route")
@@ -81,6 +83,7 @@ class RoutinoProvider:
 
     def distance_matrix(self, points: list[Point], policy: RoadPolicy) -> Matrix:
         self._policy(policy)
+        event("routino_configuration", binary=self.binary, database=self.database, profiles=self.profiles, profileSha256=hashlib.sha256(Path(self.profiles).read_bytes()).hexdigest())
         matrix: Matrix = [[0 for _ in points] for _ in points]
         for i, start in enumerate(points):
             for j, end in enumerate(points):
