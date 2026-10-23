@@ -61,6 +61,9 @@ abstract class TripDao {
     @Query("UPDATE trips SET routeJson = :json WHERE id = :id AND revision = :revision")
     abstract suspend fun saveRoute(id: String, revision: Long, json: String)
 
+    @Query("DELETE FROM trips WHERE id = :id")
+    abstract suspend fun deleteTrip(id: String)
+
     @Insert abstract suspend fun insertTrip(trip: Trip)
     @Upsert abstract suspend fun upsertLocation(location: TripLocation)
     @Update abstract suspend fun updateTrip(trip: Trip)

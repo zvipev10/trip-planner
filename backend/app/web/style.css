@@ -760,3 +760,11 @@ dialog label {
 
 .endpoint-editor { margin: 18px 0; }
 .endpoint-editor summary { cursor: pointer; color: #265d4f; font-weight: 650; padding: 12px 0; }
+
+/* Small outline icon with a comfortable, separate touch target. */
+.trip-row { display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--line); border-radius: 15px; margin-bottom: 12px; padding-inline-end: 8px; }
+.trip-row .trip-card { flex: 1; min-width: 0; border: 0; margin: 0; background: transparent; padding-inline-end: 48px; }
+.trip-card h3, .trip-card small { overflow-wrap: anywhere; }
+.trip-delete { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 48px; height: 48px; padding: 0; background: transparent; color: var(--muted); border: 0; border-radius: 50%; }
+.trip-delete:hover { color: #a33434; background: #faeeee; }
+.trip-delete:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

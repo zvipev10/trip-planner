@@ -1,0 +1,2 @@
+# Implementation checkpoint
+Added Android 20dp outline trash icon in a 48dp IconButton, named confirmation, DAO parent deletion with existing location cascade and existing ViewModel write errors. Added sibling list delete button on web and replaced detail text action with the same icon. Confirmation names the trip and removes saved route too. Cancel keeps data. APK 0.5.3/code9 uses existing permanent signing identity. JS syntax passes; remaining checks: browser cancel/confirm/persistence and Android CI.
